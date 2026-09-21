@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Project Plan Manager</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background:#0b1020; color:#e5e7eb }
+    body { margin:0; padding:24px; max-width:1400px; margin-inline:auto }
+    header { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:20px }
+    h1 { margin:0 auto 0 0; font-size:1.4rem }
+    select,input,button { color:inherit; background:#172033; border:1px solid #334155; border-radius:8px; padding:9px 12px }
+    button { cursor:pointer }
+    button:hover { border-color:#60a5fa }
+    input { min-width:240px }
+    details { background:#111827; border:1px solid #263247; border-radius:10px; padding:12px; margin:10px 0 }
+     summary { cursor:pointer; font-weight:650 }
+     .plan-title { font-size:1.05rem }
+     .plan-summary { display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+     .plan-heading { display:flex; flex-direction:column; gap:3px; min-width:0; margin-right:auto }
+     .plan-metadata { color:#94a3b8; font-size:.78rem; font-weight:400 }
+    .title-zero { color:#cbd5e1 }
+    .title-partial { color:#fde68a }
+    .title-complete { color:#86efac }
+    .completion { border-radius:999px; padding:2px 8px; font-size:.78rem; font-weight:700 }
+    .completion.zero { color:#cbd5e1; background:#334155 }
+    .completion.partial { color:#fde68a; background:#713f12 }
+    .completion.complete { color:#bbf7d0; background:#14532d }
+    .phases { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px }
+    .phase { background:#172033; border-radius:8px; padding:12px }
+    .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0 }
+    .task { border-left:4px solid #64748b; padding:9px; margin:8px 0; background:#0f172a }
+    .task summary { display:flex; gap:8px; justify-content:space-between; align-items:center }
+    .task-body { padding-top:8px }
+    .task-section { margin-top:8px }
+    .task-label { color:#94a3b8; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase }
+    .task-text { font-size:.75rem; line-height:1.35; margin:3px 0 0 }
+     .completed { border-color:#22c55e }.in_progress { border-color:#60a5fa }.fail { border-color:#ef4444 }.todo { border-color:#eab308 }
+    .muted { color:#94a3b8; font-size:.85rem }.progress { white-space:pre-wrap }
+    .error { color:#fca5a5 }
+    dialog { width:min(900px,90vw); max-height:85vh; color:inherit; background:#111827; border:1px solid #475569; border-radius:12px; padding:0 }
+    dialog::backdrop { background:rgba(0,0,0,.72) }
+    .modal-header { position:sticky; top:0; display:flex; align-items:center; gap:12px; padding:14px 18px; background:#172033; border-bottom:1px solid #334155 }
+    .modal-header strong { margin-right:auto }
+    .modal-content { padding:18px; margin:0; overflow:auto; white-space:pre-wrap; font:12px/1.5 ui-monospace,monospace }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Project Plan Manager</h1>
+    <select id="project"></select>
+    <select id="plan-filter">
+      <option value="all">All plans</option>
+      <option value="zero">0%</option>
+      <option value="partial">1-99%</option>
+      <option value="complete">100%</option>
+    </select>
+    <input id="search" placeholder="Search tasks">
+    <button id="refresh">Refresh</button>
+  </header>
+  <main id="content">Loading...</main>
+  <dialog id="plan-modal">
+    <div class="modal-header"><strong id="modal-title"></strong><button id="modal-close">Close</button></div>
+    <pre id="modal-content" class="modal-content"></pre>
+  </dialog>
+  <script>
+    const state = { data:null, project:"", query:"", filter:"all", open:new Map() };
+    const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+    function rememberAccordions() {
+      document.querySelectorAll("#content details[data-key]").forEach(item => state.open.set(item.dataset.key, item.open));
+    }
+    const openAttr = key => state.open.get(key) ? " open" : "";
+    const stats = phases => {
+      const tasks = phases.flatMap(phase => phase.tasks);
+      const completed = tasks.filter(task => task.status === "completed").length;
+      return { completed, total:tasks.length, percent:tasks.length ? Math.round(completed * 100 / tasks.length) : 0 };
+    };
+    const completionClass = value => value === 100 ? "complete" : value === 0 ? "zero" : "partial";
+    const actionButton = (label, prompt) => `<button class="copy-prompt" data-prompt="${esc(prompt)}">${esc(label)}</button>`;
+    const openPlanButton = plan => `<button class="open-plan" data-plan="${esc(plan.name)}">Open Plan</button>`;
+    function render() {
+      rememberAccordions();
+      const projects = state.data?.projects || [];
+      const select = document.querySelector("#project");
+      const previous = state.project || select.value;
+      select.innerHTML = projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)} - ${esc(p.path)}</option>`).join("");
+      state.project = projects.some(p => p.id === previous) ? previous : (projects[0]?.id || "");
+      select.value = state.project;
+      const project = projects.find(p => p.id === state.project);
+       if (!project) { document.querySelector("#content").innerHTML = "No registered projects. Run <code>ppm init</code>."; return; }
+      const query = state.query.toLowerCase();
+      const plans = project.plans.filter(plan => {
+        if (state.filter === "all") return true;
+        return completionClass(stats(plan.phases).percent) === state.filter;
+      }).map(plan => {
+        const phases = plan.phases.map(phase => {
+          const tasks = phase.tasks.filter(t => !query || [t.id,t.title,t.detail,t.progress,t.status].some(v => String(v || "").toLowerCase().includes(query)));
+          if (query && !tasks.length) return "";
+          const phaseStats = stats([phase]);
+          const executePhase = `Execute ${plan.name} only Phase ${phase.name} using Project-Plan-Manager skill. Check blocking previous phase, report if any`;
+          const auditPhase = `Audit ${plan.name} only Phase ${phase.name} using Project-Plan-Manager skill. Report briefly`;
+          return `<section class="phase"><strong class="phase-title title-${completionClass(phaseStats.percent)}">${esc(phase.title)}</strong> <span class="completion ${completionClass(phaseStats.percent)}">${phaseStats.percent}% (${phaseStats.completed}/${phaseStats.total})</span><div class="muted">${esc(phase.name)}</div><div class="actions">${actionButton("Execute Phase", executePhase)}${actionButton("Audit Phase", auditPhase)}</div>${tasks.map(t => { const taskKey = `${project.id}/${plan.name}/${phase.name}/${t.id}`; return `<details class="task ${esc(t.status)}" data-key="${esc(taskKey)}"${openAttr(taskKey)}><summary><span>${esc(t.id)} - ${esc(t.title)}</span><span class="muted">${esc(t.status)}</span></summary><div class="task-body"><section class="task-section"><div class="task-label">Detail</div><p class="task-text">${esc(t.detail)}</p></section><section class="task-section"><div class="task-label">Progress</div><div class="task-text progress">${esc(t.progress || "No progress recorded.")}</div></section></div></details>`; }).join("")}</section>`;
+        }).join("");
+        if (query && !phases) return "";
+        const planKey = `${project.id}/${plan.name}`;
+        const planStats = stats(plan.phases);
+        const executePlan = `Execute ${plan.name} using Project-Plan-Manager skill`;
+        const auditPlan = `Audit ${plan.name} using Project-Plan-Manager skill`;
+         return `<details data-key="${esc(planKey)}"${openAttr(planKey)}><summary class="plan-summary"><span class="plan-heading"><span class="plan-title title-${completionClass(planStats.percent)}">${esc(plan.name)}</span><span class="plan-metadata">[Created at: ${esc(plan.createdAt || "-")}] [Last Updated: ${esc(plan.lastUpdated || "-")}]</span></span><span class="completion ${completionClass(planStats.percent)}">${planStats.percent}% (${planStats.completed}/${planStats.total})</span> <span class="muted">${plan.phases.length} phase(s)</span></summary><div class="actions">${actionButton("Execute Plan", executePlan)}${actionButton("Audit Plan", auditPlan)}${openPlanButton(plan)}</div><div class="phases">${phases || '<span class="muted">No phases</span>'}</div></details>`;
+      }).join("");
+      document.querySelector("#content").innerHTML = plans || "No plans found.";
+    }
+    async function load() {
+      try { const response = await fetch("/api/tasks", { cache:"no-store" }); if (!response.ok) throw new Error(await response.text()); state.data = await response.json(); render(); }
+      catch (error) { document.querySelector("#content").innerHTML = `<p class="error">${esc(error.message)}</p>`; }
+    }
+    document.querySelector("#project").addEventListener("change", event => { state.project = event.target.value; render(); });
+    document.querySelector("#plan-filter").addEventListener("change", event => { state.filter = event.target.value; render(); });
+    document.querySelector("#search").addEventListener("input", event => { state.query = event.target.value; render(); });
+    document.querySelector("#refresh").addEventListener("click", load);
+    document.querySelector("#content").addEventListener("click", async event => {
+      const openButton = event.target.closest(".open-plan");
+      if (openButton) {
+        const project = state.data.projects.find(item => item.id === state.project);
+        const plan = project?.plans.find(item => item.name === openButton.dataset.plan);
+        document.querySelector("#modal-title").textContent = `${plan?.name || "Plan"} - plan.md`;
+        document.querySelector("#modal-content").textContent = plan?.content || "plan.md not found or empty.";
+        document.querySelector("#plan-modal").showModal();
+        return;
+      }
+      const button = event.target.closest(".copy-prompt");
+      if (!button) return;
+      const label = button.textContent;
+      try {
+        await navigator.clipboard.writeText(button.dataset.prompt);
+        button.textContent = "Copied";
+        setTimeout(() => { button.textContent = label; }, 1200);
+      } catch { window.prompt("Copy prompt:", button.dataset.prompt); }
+    });
+    document.querySelector("#modal-close").addEventListener("click", () => document.querySelector("#plan-modal").close());
+    document.querySelector("#plan-modal").addEventListener("click", event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+    load(); setInterval(load, 3000);
+  </script>
+</body>
+</html>

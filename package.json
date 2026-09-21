@@ -1,0 +1,26 @@
+{
+  "name": "project-plan-manager-agent-skill",
+  "version": "1.0.0",
+  "description": "Agent Skill and CLI for structured project plans and task progress management.",
+  "type": "commonjs",
+  "bin": {
+    "ppm": "bin/ppm.js"
+  },
+  "files": [
+    "SKILL.md",
+    "prompts/planning-flow.md",
+    "prompts/execution-flow.md",
+    "prompts/audition-flow.md",
+    "prompts/installation-flow.md",
+    "README.md",
+    "LICENSE",
+    "bin/ppm.js",
+    "templates/task.html"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check": "node --check bin/ppm.js"
+  }
+}
