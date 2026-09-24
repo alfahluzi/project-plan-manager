@@ -19,7 +19,26 @@ Canonical layout: lowercase hyphenated `project-plan-manager/SKILL.md` plus thre
 
 ## Installation
 
-### OpenCode default skills directory
+### One-shot installer
+
+The repo ships with `install.sh`, which copies (or symlinks) the skill into the chosen agent's skills directory and runs `npm link` so `ppm` becomes available globally.
+
+```bash
+git clone <repository-url> project-plan-manager
+cd project-plan-manager
+./install.sh                            # copy mode, OpenCode
+./install.sh --client claude            # Claude Code
+./install.sh --client codex             # Codex
+./install.sh --client all               # install for all three at once
+./install.sh --mode link                # symlink source repo (live development)
+./install.sh --uninstall                # remove skill + unlink ppm
+```
+
+Requires Node.js >=18 and `npm` on `PATH`. POSIX shell (Linux/macOS); Windows users should run under WSL or Git Bash.
+
+### Manual installation
+
+#### OpenCode default skills directory
 
 ```bash
 git clone <repository-url> ~/.config/opencode/skills/project-plan-manager
@@ -27,7 +46,7 @@ cd ~/.config/opencode/skills/project-plan-manager
 npm link
 ```
 
-### Claude Code user skill directory
+#### Claude Code user skill directory
 
 ```bash
 git clone <repository-url> ~/.claude/skills/project-plan-manager
@@ -35,11 +54,11 @@ cd ~/.claude/skills/project-plan-manager
 npm link
 ```
 
-### Codex user skill directory
+#### Codex user skill directory
 
 Copy or clone the folder into the Agent Skills-compatible user skills location configured for Codex, commonly `~/.agents/skills/project-plan-manager`, then run `npm link` from the cloned package directory.
 
-### Generic Agent Skills-compatible client
+#### Generic Agent Skills-compatible client
 
 Copy or clone the folder into the client's configured skills directory, preserving the lowercase hyphenated folder name:
 
