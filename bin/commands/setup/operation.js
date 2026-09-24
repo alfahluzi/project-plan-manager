@@ -1,7 +1,7 @@
 "use strict";
 
 const { createOperation } = require("../../createOperation");
-const { initHandler, migrateHandler, cleanRootsHandler, dashboardServeHandler, validatePort } = require("./helper");
+const { initHandler, migrateHandler, cleanRootsHandler, dashboardServeHandler, dashboardHealthHandler, validatePort } = require("./helper");
 
 module.exports = [
 	createOperation({
@@ -38,6 +38,14 @@ module.exports = [
 		usage: "ppm dashboard_serve [--project <path>] [--port <port>]",
 		handler: dashboardServeHandler,
 		options: ["project", "port"],
+		validators: { port: validatePort },
+	}),
+
+	createOperation({
+		name: "check_dashboard",
+		usage: "ppm check_dashboard [--port <port>]",
+		handler: dashboardHealthHandler,
+		options: ["port"],
 		validators: { port: validatePort },
 	}),
 ];

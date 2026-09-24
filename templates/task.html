@@ -35,6 +35,12 @@
     .task-section { margin-top:8px }
     .task-label { color:#94a3b8; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase }
     .task-text { font-size:.75rem; line-height:1.35; margin:3px 0 0 }
+    .task-meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px }
+    .badge { display:inline-block; font-size:.68rem; font-weight:700; letter-spacing:.04em; padding:2px 8px; border-radius:999px; border:1px solid transparent }
+    .badge.ready { color:#86efac; background:#14532d; border-color:#166534 }
+    .badge.blocked { color:#fcd34d; background:#3f2c0a; border-color:#92400e }
+    .badge.parallel { color:#93c5fd; background:#0c2546; border-color:#1d4ed8 }
+    .deps { color:#cbd5e1; font-size:.72rem }
      .completed { border-color:#22c55e }.in_progress { border-color:#60a5fa }.fail { border-color:#ef4444 }.todo { border-color:#eab308 }
     .muted { color:#94a3b8; font-size:.85rem }.progress { white-space:pre-wrap }
     .error { color:#fca5a5 }
@@ -76,6 +82,24 @@
       return { completed, total:tasks.length, percent:tasks.length ? Math.round(completed * 100 / tasks.length) : 0 };
     };
     const completionClass = value => value === 100 ? "complete" : value === 0 ? "zero" : "partial";
+    const depsSatisfied = (task, statusById) => {
+      const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
+      return deps.every(id => statusById.get(id) === "completed");
+    };
+    const taskBadges = (task, statusById) => {
+      const badges = [];
+      const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
+      if (task.status === "todo") {
+        if (deps.length === 0) badges.push('<span class="badge parallel" title="No pre_request dependencies">PARALLEL</span>');
+        else if (depsSatisfied(task, statusById)) badges.push('<span class="badge ready" title="All pre_request deps completed">READY</span>');
+        else badges.push('<span class="badge blocked" title="Waiting on pre_request deps">BLOCKED</span>');
+      }
+      return badges.join(" ");
+    };
+    const depsLine = task => {
+      const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
+      return deps.length ? `<div class="deps">pre_request: ${deps.map(esc).join(", ")}</div>` : "";
+    };
     const actionButton = (label, prompt) => `<button class="copy-prompt" data-prompt="${esc(prompt)}">${esc(label)}</button>`;
     const openPlanButton = plan => `<button class="open-plan" data-plan="${esc(plan.name)}">Open Plan</button>`;
     function render() {
@@ -94,12 +118,13 @@
         return completionClass(stats(plan.phases).percent) === state.filter;
       }).map(plan => {
         const phases = plan.phases.map(phase => {
+          const statusById = new Map(phase.tasks.map(t => [t.id, t.status]));
           const tasks = phase.tasks.filter(t => !query || [t.id,t.title,t.detail,t.progress,t.status].some(v => String(v || "").toLowerCase().includes(query)));
           if (query && !tasks.length) return "";
           const phaseStats = stats([phase]);
-          const executePhase = `Execute ${plan.name} only Phase ${phase.name} using Project-Plan-Manager skill. Check blocking previous phase, report if any`;
+          const executePhase = `Execute ${plan.name} only Phase ${phase.name} using Project-Plan-Manager skill. Phases are sequential; tasks with empty pre_request are parallel-eligible. Use ppm task_ready to list runnable tasks.`;
           const auditPhase = `Audit ${plan.name} only Phase ${phase.name} using Project-Plan-Manager skill. Report briefly`;
-          return `<section class="phase"><strong class="phase-title title-${completionClass(phaseStats.percent)}">${esc(phase.title)}</strong> <span class="completion ${completionClass(phaseStats.percent)}">${phaseStats.percent}% (${phaseStats.completed}/${phaseStats.total})</span><div class="muted">${esc(phase.name)}</div><div class="actions">${actionButton("Execute Phase", executePhase)}${actionButton("Audit Phase", auditPhase)}</div>${tasks.map(t => { const taskKey = `${project.id}/${plan.name}/${phase.name}/${t.id}`; return `<details class="task ${esc(t.status)}" data-key="${esc(taskKey)}"${openAttr(taskKey)}><summary><span>${esc(t.id)} - ${esc(t.title)}</span><span class="muted">${esc(t.status)}</span></summary><div class="task-body"><section class="task-section"><div class="task-label">Detail</div><p class="task-text">${esc(t.detail)}</p></section><section class="task-section"><div class="task-label">Progress</div><div class="task-text progress">${esc(t.progress || "No progress recorded.")}</div></section></div></details>`; }).join("")}</section>`;
+          return `<section class="phase"><strong class="phase-title title-${completionClass(phaseStats.percent)}">${esc(phase.title)}</strong> <span class="completion ${completionClass(phaseStats.percent)}">${phaseStats.percent}% (${phaseStats.completed}/${phaseStats.total})</span><div class="muted">${esc(phase.name)}</div><div class="actions">${actionButton("Execute Phase", executePhase)}${actionButton("Audit Phase", auditPhase)}</div>${tasks.map(t => { const taskKey = `${project.id}/${plan.name}/${phase.name}/${t.id}`; return `<details class="task ${esc(t.status)}" data-key="${esc(taskKey)}"${openAttr(taskKey)}><summary><span>${esc(t.id)} - ${esc(t.title)}</span><span>${taskBadges(t, statusById)}<span class="muted">${esc(t.status)}</span></span></summary><div class="task-body">${depsLine(t)}<section class="task-section"><div class="task-label">Detail</div><p class="task-text">${esc(t.detail)}</p></section><section class="task-section"><div class="task-label">Progress</div><div class="task-text progress">${esc(t.progress || "No progress recorded.")}</div></section></div></details>`; }).join("")}</section>`;
         }).join("");
         if (query && !phases) return "";
         const planKey = `${project.id}/${plan.name}`;

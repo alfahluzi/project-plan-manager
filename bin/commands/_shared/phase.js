@@ -41,6 +41,43 @@ function readPhase(taskFile, expectedPhase) {
 	return phase;
 }
 
+function validatePreRequest(task, index, ids) {
+	if (!("pre_request" in task)) return;
+	const label = `tasks[${index}].pre_request`;
+	if (!Array.isArray(task.pre_request)) throw new Error(`${label} must be an array of task ids`);
+	const seen = new Set();
+	for (const dep of task.pre_request) {
+		if (typeof dep !== "string" || !dep.trim()) throw new Error(`${label} entries must be non-empty strings`);
+		if (dep === task.id) throw new Error(`${label} cannot reference the task itself: ${dep}`);
+		if (!ids.has(dep)) throw new Error(`${label} references unknown task id in same phase: ${dep}`);
+		if (seen.has(dep)) throw new Error(`${label} contains duplicate entry: ${dep}`);
+		seen.add(dep);
+	}
+}
+
+function detectCycles(phase) {
+	const deps = new Map();
+	for (const task of phase.tasks) deps.set(task.id, Array.isArray(task.pre_request) ? task.pre_request : []);
+	const WHITE = 0, GRAY = 1, BLACK = 2;
+	const color = new Map();
+	const stack = [];
+	const visit = (id) => {
+		if (color.get(id) === GRAY) {
+			const cycleStart = stack.indexOf(id);
+			const cycle = [...stack.slice(cycleStart), id].join(" -> ");
+			throw new Error(`pre_request cycle detected: ${cycle}`);
+		}
+		if (color.get(id) === BLACK) return;
+		color.set(id, GRAY);
+		stack.push(id);
+		for (const dep of deps.get(id) || []) visit(dep);
+		stack.pop();
+		color.set(id, BLACK);
+	};
+	for (const id of deps.keys()) color.set(id, WHITE);
+	for (const id of deps.keys()) if (color.get(id) === WHITE) visit(id);
+}
+
 function validatePhase(phase, expectedPhase) {
 	if (!phase || typeof phase !== "object" || Array.isArray(phase)) throw new Error("phase file root must be an object");
 	if (phase.phase !== expectedPhase) throw new Error(`phase field must equal ${expectedPhase}`);
@@ -55,6 +92,8 @@ function validatePhase(phase, expectedPhase) {
 		if (!["todo", "in_progress", "completed", "fail"].includes(task.status)) throw new Error(`${label}.status is invalid: ${task.status}`);
 		if (typeof task.progress !== "string") throw new Error(`${label}.progress must be a string`);
 	});
+	phase.tasks.forEach((task, index) => validatePreRequest(task, index, ids));
+	detectCycles(phase);
 }
 
 module.exports = { assertSafeSegment, projectRoot, readPhase, validatePhase, PLAN_PATTERN, PHASE_PATTERN };

@@ -93,12 +93,17 @@ Run the CLI from a project root, or pass `--project <path>`:
 ```bash
 ppm init --plan <plan-name>
 ppm task_list --plan <plan-name> --phase phase_0
-ppm task_get_detail --plan <plan-name> --phase phase_0 --task-id TASK-001
+ppm task_ready --plan <plan-name> --phase phase_0
+ppm task_blocked --plan <plan-name> --phase phase_0
+ppm task_get --plan <plan-name> --phase phase_0 --task-id TASK-001
 ppm task_in_progress --plan <plan-name> --phase phase_0 --task-id TASK-001
 ppm task_write_progress --plan <plan-name> --phase phase_0 --task-id TASK-001 --progress-text "Verification passed."
 ppm task_completed --plan <plan-name> --phase phase_0 --task-id TASK-001
 ppm dashboard_serve --project <path>
+ppm check_dashboard [--port <port>]
 ```
+
+Phases execute strictly in numeric order. Inside a phase, tasks with no `pre_request` (or `pre_request: []`) can run in parallel; tasks with `pre_request` entries wait until each listed task is `completed`. `ppm task_ready` lists the currently runnable tasks in a phase.
 
 See [SKILL.md](SKILL.md) for mandatory routing. Follow [planning-flow.md](prompts/planning-flow.md), [execution-flow.md](prompts/execution-flow.md), [audition-flow.md](prompts/audition-flow.md), or [installation-flow.md](prompts/installation-flow.md) for the applicable workflow.
 

@@ -78,7 +78,8 @@ Each `tasks/phase_x.json` uses:
       "title": "Short action-oriented title",
       "detail": "Implementation detail, constraints, expected result, verification.",
       "status": "todo",
-      "progress": ""
+      "progress": "",
+      "pre_request": ["TASK-002"]
     }
   ]
 }
@@ -92,6 +93,14 @@ Invariants:
 - New tasks start as `todo`.
 - `progress` is a concise, factual execution record, verification evidence, or failure context.
 - Task detail lets another agent execute without rediscovering settled intent.
+- `pre_request` is optional. When present it lists task IDs within the same phase that must reach `completed` before this task can start. Omit the field, or set it to `[]`, when a task is independent and parallel-eligible inside its phase.
+- `pre_request` entries must reference existing task IDs in the same phase, must not include the task itself, must not duplicate, and must not form cycles.
+
+## Phases, sequential execution, and parallel tasks
+
+Phases are processed strictly in numeric order (`phase_0`, `phase_1`, ...). A later phase only begins after every task in the current phase is `completed`.
+
+Within a single phase, tasks whose `pre_request` is absent or empty can run in parallel; tasks with `pre_request` entries must wait until each referenced task is `completed`. Use `ppm task_ready --plan <name> --phase <phase_x>` to list the tasks currently eligible to start (status `todo` with all `pre_request` dependencies `completed`). Use `ppm task_blocked` to inspect tasks still waiting on unmet dependencies. The plan model is therefore "sequential phases, parallelizable tasks inside a phase".
 
 ## Required planning deliverables
 

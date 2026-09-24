@@ -21,6 +21,34 @@ function getTask(phase, taskId) {
 	return task;
 }
 
+function depsSatisfied(task, statusById) {
+	const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
+	for (const dep of deps) if (statusById.get(dep) !== "completed") return false;
+	return true;
+}
+
+function readyTasks(phase) {
+	const statusById = new Map(phase.tasks.map((task) => [task.id, task.status]));
+	return phase.tasks
+		.filter((task) => task.status === "todo" && depsSatisfied(task, statusById))
+		.map(({ id, title, pre_request }) => ({
+			id,
+			title,
+			pre_request: Array.isArray(pre_request) ? pre_request : [],
+		}));
+}
+
+function blockedTasks(phase) {
+	const statusById = new Map(phase.tasks.map((task) => [task.id, task.status]));
+	return phase.tasks
+		.filter((task) => task.status === "todo" && !depsSatisfied(task, statusById))
+		.map(({ id, title, pre_request }) => {
+			const waiting = (Array.isArray(pre_request) ? pre_request : [])
+				.filter((dep) => statusById.get(dep) !== "completed");
+			return { id, title, waiting };
+		});
+}
+
 function writePhase(taskFile, phase) {
 	const temporaryFile = `${taskFile}.${process.pid}.tmp`;
 	try {
@@ -30,7 +58,7 @@ function writePhase(taskFile, phase) {
 }
 
 function printFields(fields) {
-	process.stdout.write(`${fields.map(([label, value]) => `## ${label}\n${value}`).join("\n\n")}\n`);
+	process.stdout.write(`${fields.map(([label, value]) => `## ${label}\n${value}`).join("\n")}\n`);
 }
 
 function loadPhase(options) {
@@ -45,16 +73,45 @@ function taskListHandler(options) {
 	process.stdout.write(output ? `${output}\n` : "No tasks.\n");
 }
 
-function taskGetProgressHandler(options) {
-	const { phase } = loadPhase(options);
-	const task = getTask(phase, options["task-id"]);
-	printFields([["Title", task.title], ["Status", task.status], ["Progress", task.progress || "No progress recorded."]]);
+function formatReadyEntry({ id, title, pre_request }) {
+	const deps = pre_request.length ? `\nPre-request: ${pre_request.join(", ")}` : "";
+	return `## ${id} - ${title}${deps}`;
 }
 
-function taskGetDetailHandler(options) {
+function taskReadyHandler(options) {
+	const { phase } = loadPhase(options);
+	const ready = readyTasks(phase);
+	if (!ready.length) {
+		const blocked = blockedTasks(phase);
+		const blockedNote = blocked.length
+			? `\nBlocked tasks waiting on unmet pre_request: ${blocked.map(({ id }) => id).join(", ")}\n`
+			: "";
+		process.stdout.write(`No ready tasks.${blockedNote}`);
+		return;
+	}
+	process.stdout.write(`Ready tasks (parallel-eligible within this phase): ${ready.length}\n\n${ready.map(formatReadyEntry).join("\n\n")}\n`);
+}
+
+function taskBlockedHandler(options) {
+	const { phase } = loadPhase(options);
+	const blocked = blockedTasks(phase);
+	if (!blocked.length) {
+		process.stdout.write("No blocked tasks.\n");
+		return;
+	}
+	const lines = blocked.map(({ id, title, waiting }) => `## ${id} - ${title}\nWaiting on: ${waiting.join(", ")}`);
+	process.stdout.write(`${lines.join("\n\n")}\n`);
+}
+
+function taskGetHandler(options) {
 	const { phase } = loadPhase(options);
 	const task = getTask(phase, options["task-id"]);
-	printFields([["Title", task.title], ["Status", task.status], ["Detail", task.detail]]);
+	printFields([
+		["Title", task.title],
+		["Status", task.status],
+		["Detail", task.detail],
+		["Progress", task.progress || "No progress recorded."],
+	]);
 }
 
 function taskWriteProgressHandler(options) {
@@ -82,9 +139,12 @@ function validateProgressText(opts) {
 
 module.exports = {
 	taskListHandler,
-	taskGetProgressHandler,
-	taskGetDetailHandler,
+	taskReadyHandler,
+	taskBlockedHandler,
+	taskGetHandler,
 	taskWriteProgressHandler,
 	setTaskStatus,
 	validateProgressText,
+	readyTasks,
+	blockedTasks,
 };

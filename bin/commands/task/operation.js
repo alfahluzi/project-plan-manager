@@ -3,8 +3,9 @@
 const { createOperation } = require("../../createOperation");
 const {
 	taskListHandler,
-	taskGetProgressHandler,
-	taskGetDetailHandler,
+	taskReadyHandler,
+	taskBlockedHandler,
+	taskGetHandler,
 	taskWriteProgressHandler,
 	setTaskStatus,
 	validateProgressText,
@@ -23,17 +24,25 @@ module.exports = [
 	}),
 
 	createOperation({
-		name: "task_get_progress",
-		usage: "ppm task_get_progress --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
-		handler: taskGetProgressHandler,
-		options: taskOptions,
-		required: taskIdRequired,
+		name: "task_ready",
+		usage: "ppm task_ready --plan <name> --phase <phase_x> [--project <path>]",
+		handler: taskReadyHandler,
+		options: ["project", "plan", "phase"],
+		required: ["plan", "phase"],
 	}),
 
 	createOperation({
-		name: "task_get_detail",
-		usage: "ppm task_get_detail --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
-		handler: taskGetDetailHandler,
+		name: "task_blocked",
+		usage: "ppm task_blocked --plan <name> --phase <phase_x> [--project <path>]",
+		handler: taskBlockedHandler,
+		options: ["project", "plan", "phase"],
+		required: ["plan", "phase"],
+	}),
+
+	createOperation({
+		name: "task_get",
+		usage: "ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
+		handler: taskGetHandler,
 		options: taskOptions,
 		required: taskIdRequired,
 	}),

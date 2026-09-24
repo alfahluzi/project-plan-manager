@@ -10,8 +10,7 @@ For complete consistency checks, use the CLI exclusively for phase task data:
 
 ```bash
 ppm task_list --plan <name> --phase <phase_x> [--project <project-path>]
-ppm task_get_detail --plan <name> --phase <phase_x> --task-id <id> [--project <project-path>]
-ppm task_get_progress --plan <name> --phase <phase_x> --task-id <id> [--project <project-path>]
+ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <project-path>]
 ```
 
 Do not call status or progress mutation commands. Never mark a task, write progress, or rewrite the plan during an audition.

@@ -182,6 +182,48 @@ function dashboardServeHandler(options) {
 	server.listen(port, "127.0.0.1", () => process.stdout.write(`Dashboard available at http://127.0.0.1:${port}/task.html\n`));
 }
 
+function dashboardHealthHandler(options) {
+	const port = options.port === undefined ? 4173 : Number(options.port);
+	const url = `http://127.0.0.1:${port}/api/tasks`;
+	const pageUrl = `http://127.0.0.1:${port}/task.html`;
+	const request = http.get(url, { timeout: 2000 }, (response) => {
+		if (response.statusCode !== 200) {
+			process.stdout.write(`Dashboard unhealthy: ${url} returned HTTP ${response.statusCode}\n`);
+			response.resume();
+			process.exitCode = 2;
+			return;
+		}
+		let body = "";
+		response.setEncoding("utf8");
+		response.on("data", (chunk) => { body += chunk; });
+		response.on("end", () => {
+			let data;
+			try { data = JSON.parse(body); } catch {
+				process.stdout.write(`Dashboard unhealthy: ${url} returned non-JSON payload\n`);
+				process.exitCode = 2;
+				return;
+			}
+			const projects = Array.isArray(data?.projects) ? data.projects : [];
+			const plans = projects.reduce((sum, project) => sum + (Array.isArray(project?.plans) ? project.plans.length : 0), 0);
+			process.stdout.write(`Dashboard running: ${pageUrl}\nProjects: ${projects.length}; Plans: ${plans}\n`);
+		});
+	});
+	request.on("timeout", () => {
+		request.destroy();
+		process.stdout.write(`Dashboard not responding: ${url} (timeout)\nStart with: ppm dashboard_serve [--port ${port}]\n`);
+		process.exitCode = 1;
+	});
+	request.on("error", (error) => {
+		if (error.code === "ECONNREFUSED") {
+			process.stdout.write(`Dashboard not running: ${pageUrl}\nStart with: ppm dashboard_serve [--port ${port}]\n`);
+			process.exitCode = 1;
+			return;
+		}
+		process.stdout.write(`Dashboard check failed: ${url} (${error.message})\n`);
+		process.exitCode = 1;
+	});
+}
+
 function validatePort(opts) {
 	if (opts.port === undefined) return;
 	if (!/^\d+$/.test(opts.port) || Number(opts.port) < 1 || Number(opts.port) > 65535)
@@ -193,5 +235,6 @@ module.exports = {
 	migrateHandler,
 	cleanRootsHandler,
 	dashboardServeHandler,
+	dashboardHealthHandler,
 	validatePort,
 };
