@@ -14,13 +14,13 @@
     "prompts/installation-flow.md",
     "README.md",
     "LICENSE",
-    "bin/ppm.js",
+    "bin",
     "templates/task.html"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "check": "node --check bin/ppm.js"
+    "check": "node --check bin/ppm.js && node --check bin/createOperation.js && node --check bin/commands/setup/operation.js && node --check bin/commands/setup/helper.js && node --check bin/commands/task/operation.js && node --check bin/commands/task/helper.js && node --check bin/commands/_shared/phase.js && node --check bin/commands/_shared/patterns.js"
   }
 }
