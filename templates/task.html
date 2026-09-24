@@ -4,32 +4,68 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Project Plan Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Tailwind Play CDN: dev/preview only. For production, build via Tailwind CLI / PostCSS. -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
   <style>
-    #plan-modal::backdrop { background: rgba(0,0,0,0.7); }
+    html { background: #0a0e14; }
+    body { font-feature-settings: "cv02","cv03","cv04","cv11"; }
+    #plan-modal::backdrop { background: rgba(6,9,14,0.78); backdrop-filter: blur(2px); }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    .chev { transition: transform .18s ease; }
+    details[open] > summary .chev { transform: rotate(90deg); }
+    .task-body { animation: reveal .15s ease; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #232b38; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2d3747; }
+    @media (prefers-reduced-motion: reduce) {
+      .task-body { animation: none; }
+      .chev { transition: none; }
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-200 font-sans antialiased max-w-[1400px] mx-auto px-6 py-6">
-  <header class="flex gap-3 items-center flex-wrap mb-5">
-    <h1 class="text-xl font-bold m-0">Project Plan Manager</h1>
-    <select id="project" class="text-inherit bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"></select>
-    <select id="plan-filter" class="text-inherit bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+<body class="bg-[#0a0e14] text-[#dde3ec] font-sans antialiased max-w-[1400px] mx-auto px-6 py-8 selection:bg-teal-500/30">
+  <header class="flex gap-2.5 items-center flex-wrap mb-3 pb-3 border-b border-[#1c2431]">
+    <div class="mr-2 flex items-baseline gap-2">
+      <h1 class="text-[1.1rem] font-semibold tracking-tight text-white m-0">Project Plan Manager</h1>
+      <span class="font-mono text-[11px] text-[#5b6577]">ppm</span>
+    </div>
+    <select id="project" class="text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors"></select>
+    <button id="refresh" class="text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3.5 py-1.5 text-sm cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors focus-visible:ring-2 focus-visible:ring-teal-500/60 outline-none">Refresh</button>
+    <select id="plan-filter" class="text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors">
       <option value="all">All plans</option>
       <option value="zero">0%</option>
-      <option value="partial">1-99%</option>
+      <option value="partial">1–99%</option>
       <option value="complete">100%</option>
     </select>
-    <input id="search" placeholder="Search tasks" class="text-inherit bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm min-w-[240px]">
-    <button id="refresh" class="text-inherit bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm cursor-pointer hover:border-sky-400 transition-colors">Refresh</button>
+    <input id="search" placeholder="Search tasks…" class="text-[#dde3ec] placeholder:text-[#5b6577] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-sm min-w-[240px] outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors">
   </header>
-  <main id="content" class="space-y-3">Loading...</main>
-  <dialog id="plan-modal" class="w-[min(900px,90vw)] max-h-[85vh] text-inherit bg-slate-900 border border-slate-700 rounded-xl p-0">
-    <div class="sticky top-0 flex items-center gap-3 px-4 py-3 bg-slate-800 border-b border-slate-700">
-      <strong id="modal-title" class="mr-auto text-sm"></strong>
-      <button id="modal-close" class="text-inherit bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm cursor-pointer hover:border-sky-400 transition-colors">Close</button>
+  <main id="content" class="space-y-2">
+    <p class="text-[#5b6577] text-sm">Loading…</p>
+  </main>
+  <dialog id="plan-modal" class="w-[min(900px,90vw)] max-h-[85vh] text-[#dde3ec] bg-[#0d1218] border border-[#232b38] rounded-xl p-0 shadow-2xl shadow-black/60">
+    <div class="sticky top-0 flex items-center gap-3 px-4 py-3 bg-[#111720] border-b border-[#232b38] rounded-t-xl">
+      <strong id="modal-title" class="mr-auto text-sm font-medium text-white"></strong>
+      <button id="modal-close" class="text-[#dde3ec] bg-[#181f2a] border border-[#232b38] rounded-md px-3 py-1.5 text-xs cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors">Close</button>
     </div>
-    <pre id="modal-content" class="p-4 m-0 overflow-auto whitespace-pre-wrap text-xs leading-relaxed font-mono"></pre>
+    <pre id="modal-content" class="p-4 m-0 overflow-auto whitespace-pre-wrap text-[12px] leading-relaxed font-mono text-[#c3ccd9]"></pre>
   </dialog>
   <script>
     // ============== state ==============
@@ -37,31 +73,37 @@
 
     // ============== design tokens ==============
     const TASK_BORDER = {
-      completed: "border-l-green-500",
+      completed: "border-l-emerald-500",
       in_progress: "border-l-sky-400",
-      fail: "border-l-red-500",
-      todo: "border-l-yellow-500",
+      fail: "border-l-rose-500",
+      todo: "border-l-amber-400",
     };
-    const TASK_BASE = "border-l-4 bg-slate-900 rounded-r px-3 py-2 my-2";
-    const BADGE_BASE = "inline-block text-[0.68rem] font-bold tracking-wide px-2 py-0.5 rounded-full border";
+    const TASK_DOT = {
+      completed: "bg-emerald-500",
+      in_progress: "bg-sky-400",
+      fail: "bg-rose-500",
+      todo: "bg-amber-400",
+    };
+    const TASK_BASE = "border-l-2 bg-[#111720] hover:bg-[#141b26] rounded-r-lg px-3.5 py-1 my-2 transition-colors";
+    const BADGE_BASE = "inline-flex items-center gap-1 text-[8px] font-semibold tracking-wide px-2 py-0 rounded-full border font-mono";
     const BADGE_VARIANT = {
-      ready: "text-green-300 bg-green-900 border-green-700",
-      blocked: "text-amber-300 bg-amber-950 border-amber-700",
-      parallel: "text-sky-300 bg-sky-950 border-sky-800",
+      ready: "text-emerald-300 bg-emerald-950/60 border-emerald-800/70",
+      blocked: "text-amber-300 bg-amber-950/60 border-amber-800/70",
+      parallel: "text-sky-300 bg-sky-950/60 border-sky-800/70",
     };
-    const COMPLETION_BASE = "rounded-full px-2.5 py-0.5 text-xs font-bold";
     const COMPLETION_VARIANT = {
-      zero: "text-slate-200 bg-slate-700",
-      partial: "text-amber-100 bg-amber-700",
-      complete: "text-green-100 bg-green-700",
+      zero: { text: "text-[#8996a8]", bar: "bg-[#39424f]" },
+      partial: { text: "text-amber-300", bar: "bg-amber-400" },
+      complete: { text: "text-emerald-300", bar: "bg-emerald-500" },
     };
     const TITLE_VARIANT = {
-      zero: "text-slate-200",
+      zero: "text-[#c3ccd9]",
       partial: "text-amber-100",
-      complete: "text-green-200",
+      complete: "text-emerald-100",
     };
-    const MUTED = "text-slate-400 text-sm";
-    const BUTTON = "text-inherit bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer hover:border-sky-400 transition-colors";
+    const MUTED = "text-[#8996a8] text-[13px]";
+    const BUTTON = "text-[#c3ccd9] bg-[#161d27] border border-[#232b38] rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors";
+    const BUTTON_PRIMARY = "text-[#0a0e14] bg-teal-400 border border-teal-400 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer hover:bg-teal-300 transition-colors";
 
     // ============== helpers ==============
     function esc(value) {
@@ -94,9 +136,14 @@
       const t = title ? ` title="${esc(title)}"` : "";
       return `<span class="${cls(BADGE_BASE, BADGE_VARIANT[variant])}"${t}>${esc(text)}</span>`;
     }
+    function ProgressBar(percent, variant) {
+      const v = COMPLETION_VARIANT[variant];
+      return `<div class="h-1 w-full rounded-full bg-[#1c2431] overflow-hidden"><div class="${cls("h-full rounded-full transition-[width]", v.bar)}" style="width:${percent}%"></div></div>`;
+    }
     function CompletionBadge(stats) {
       const variant = completionClass(stats.percent);
-      return `<span class="${cls(COMPLETION_BASE, COMPLETION_VARIANT[variant])}">${stats.percent}% (${stats.completed}/${stats.total})</span>`;
+      const v = COMPLETION_VARIANT[variant];
+      return `<span class="flex items-center gap-2 shrink-0"><span class="${cls("font-mono text-xs font-semibold tabular-nums", v.text)}">${stats.percent}%</span><span class="${MUTED} font-mono text-[11px]">${stats.completed}/${stats.total}</span></span>`;
     }
     function Button({ label, dataset = {}, className = BUTTON }) {
       const attrs = Object.entries(dataset)
@@ -109,24 +156,25 @@
     function TaskBadge(task, statusById) {
       if (task.status !== "todo") return "";
       const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
-      if (deps.length === 0) return Badge("parallel", "PARALLEL", "No pre_request dependencies");
-      if (depsSatisfied(task, statusById)) return Badge("ready", "READY", "All pre_request deps completed");
-      return Badge("blocked", "BLOCKED", "Waiting on pre_request deps");
+      if (deps.length === 0) return Badge("parallel", "parallel", "No pre_request dependencies");
+      if (depsSatisfied(task, statusById)) return Badge("ready", "ready", "All pre_request deps completed");
+      return Badge("blocked", "blocked", "Waiting on pre_request deps");
     }
     function TaskSummary(task, statusById) {
-      return `<span>${esc(task.id)} - ${esc(task.title)}</span><span>${TaskBadge(task, statusById)}<span class="${MUTED}">${esc(task.status)}</span></span>`;
+      const dot = `<span class="${cls("inline-block w-1.5 h-1.5 rounded-full", TASK_DOT[task.status])}"></span>`;
+      return `<span class="flex items-center gap-2 min-w-0"><span class="font-mono text-[11px] text-[#5b6577] shrink-0">${esc(task.id)}</span><span class="truncate text-[13.5px] text-[#dde3ec]">${esc(task.title)}</span></span><span class="flex items-center gap-2">${dot}<span class="${cls(MUTED, "font-mono text-[11px]")}">${esc(task.status)}</span>${TaskBadge(task, statusById)}</span>`;
     }
     function DepsLine(task) {
       const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
-      return deps.length ? `<div class="text-slate-300 text-xs">pre_request: ${deps.map(esc).join(", ")}</div>` : "";
+      return deps.length ? `<div class="font-mono text-[11px] text-[#6d7889]">pre_request: ${deps.map(esc).join(", ")}</div>` : "";
     }
     function TaskBody(task) {
-      return `<div class="pt-2">${DepsLine(task)}<section class="mt-2"><div class="${cls("text-slate-400 text-[0.7rem] font-bold tracking-wider uppercase")}">Detail</div><p class="text-xs leading-snug mt-1">${esc(task.detail)}</p></section><section class="mt-2"><div class="${cls("text-slate-400 text-[0.7rem] font-bold tracking-wider uppercase")}">Progress</div><div class="text-xs leading-snug mt-1 whitespace-pre-wrap">${esc(task.progress || "No progress recorded.")}</div></section></div>`;
+      return `<div class="task-body pt-2.5 pl-[1px]">${DepsLine(task)}<section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Detail</div><p class="text-[13px] text-[#b7c0cc] leading-snug mt-1">${esc(task.detail)}</p></section><section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Progress</div><div class="text-[13px] text-[#b7c0cc] leading-snug mt-1 whitespace-pre-wrap">${esc(task.progress || "No progress recorded.")}</div></section></div>`;
     }
     function TaskRow({ task, statusById, open }) {
       const taskClass = cls(TASK_BASE, TASK_BORDER[task.status]);
       const openAttr = open.open ? " open" : "";
-      return `<details class="${taskClass}" data-key="${esc(open.key)}"${openAttr}><summary class="cursor-pointer">${TaskSummary(task, statusById)}</summary>${TaskBody(task)}</details>`;
+      return `<details class="${taskClass}" data-key="${esc(open.key)}"${openAttr}><summary class="cursor-pointer items-center justify-between gap-1">${TaskSummary(task, statusById)}</summary>${TaskBody(task)}</details>`;
     }
 
     // ============== phase components ==============
@@ -137,16 +185,17 @@
       return `Audit ${planName} only Phase ${phaseName} using Project-Plan-Manager skill. Report briefly`;
     }
     function PhaseActions(plan, phase) {
-      return `<div class="flex flex-wrap gap-2 items-center my-2.5">${Button({ label: "Execute Phase", dataset: { prompt: PhaseExecPrompt(plan.name, phase.name) } })}${Button({ label: "Audit Phase", dataset: { prompt: PhaseAuditPrompt(plan.name, phase.name) } })}</div>`;
+      return `<div class="flex flex-wrap gap-2 items-center my-2.5">${Button({ label: "Execute Phase", className: BUTTON_PRIMARY, dataset: { prompt: PhaseExecPrompt(plan.name, phase.name) } })}${Button({ label: "Audit Phase", dataset: { prompt: PhaseAuditPrompt(plan.name, phase.name) } })}</div>`;
     }
     function PhaseSection({ plan, phase, query, projectId }) {
       const statusById = new Map(phase.tasks.map(t => [t.id, t.status]));
       const tasks = phase.tasks.filter(t => !query || [t.id,t.title,t.detail,t.progress,t.status].some(v => String(v || "").toLowerCase().includes(query)));
       if (query && !tasks.length) return "";
       const phaseStats = stats([phase]);
+      const variant = completionClass(phaseStats.percent);
       const taskKey = t => `${projectId}/${plan.name}/${phase.name}/${t.id}`;
       const openFor = t => ({ key: taskKey(t), open: state.open.get(taskKey(t)) || false });
-      return `<section class="bg-slate-800 rounded-lg p-3"><strong class="text-base font-semibold ${titleClass(phaseStats.percent)}">${esc(phase.title)}</strong> ${CompletionBadge(phaseStats)}<div class="${MUTED}">${esc(phase.name)}</div>${PhaseActions(plan, phase)}${tasks.map(t => TaskRow({ task: t, statusById, open: openFor(t) })).join("")}</section>`;
+      return `<section class="bg-[#0d1218] border border-[#1c2431] rounded-lg p-3.5"><div class="flex items-start justify-between gap-3 mb-1"><div class="min-w-0"><strong class="text-[14px] font-semibold ${titleClass(phaseStats.percent)}">${esc(phase.title)}</strong><div class="font-mono text-[11px] text-[#6d7889] mt-0.5">${esc(phase.name)}</div></div>${CompletionBadge(phaseStats)}</div>${ProgressBar(phaseStats.percent, variant)}${PhaseActions(plan, phase)}${tasks.map(t => TaskRow({ task: t, statusById, open: openFor(t) })).join("")}</section>`;
     }
 
     // ============== plan components ==============
@@ -157,10 +206,10 @@
       return `Audit ${planName} using Project-Plan-Manager skill`;
     }
     function PlanActions(plan) {
-      return `<div class="flex flex-wrap gap-2 items-center my-2.5">${Button({ label: "Execute Plan", dataset: { prompt: PlanExecPrompt(plan.name) } })}${Button({ label: "Audit Plan", dataset: { prompt: PlanAuditPrompt(plan.name) } })}${Button({ label: "Open Plan", dataset: { plan: plan.name } })}</div>`;
+      return `<div class="flex flex-wrap gap-2 items-center my-3">${Button({ label: "Execute Plan", className: BUTTON_PRIMARY, dataset: { prompt: PlanExecPrompt(plan.name) } })}${Button({ label: "Audit Plan", dataset: { prompt: PlanAuditPrompt(plan.name) } })}${Button({ label: "Open plan.md", dataset: { plan: plan.name } })}</div>`;
     }
     function PlanHeading(plan, percent) {
-      return `<span class="flex flex-col gap-0.5 min-w-0 mr-auto"><span class="text-base font-semibold ${titleClass(percent)}">${esc(plan.name)}</span><span class="text-slate-400 text-xs font-normal">[Created at: ${esc(plan.createdAt || "-")}] [Last Updated: ${esc(plan.lastUpdated || "-")}]</span></span>`;
+      return `<span class="flex flex-col gap-0.5 min-w-0 mr-auto"><span class="text-[15px] font-semibold ${titleClass(percent)}">${esc(plan.name)}</span><span class="text-[#6d7889] text-[11.5px] font-normal font-mono">created ${esc(plan.createdAt || "—")} · updated ${esc(plan.lastUpdated || "—")}</span></span>`;
     }
     function Plan({ plan, projectId, query }) {
       const phaseSections = plan.phases
@@ -168,9 +217,10 @@
         .filter(Boolean);
       if (query && !phaseSections.length) return "";
       const planStats = stats(plan.phases);
+      const variant = completionClass(planStats.percent);
       const planKey = `${projectId}/${plan.name}`;
       const openAttr = state.open.get(planKey) ? " open" : "";
-      return `<details data-key="${esc(planKey)}"${openAttr} class="bg-slate-900 border border-slate-800 rounded-lg p-3 my-2.5"><summary class="cursor-pointer font-semibold flex gap-2.5 items-center flex-wrap">${PlanHeading(plan, planStats.percent)} ${CompletionBadge(planStats)} <span class="${MUTED}">${plan.phases.length} phase(s)</span></summary>${PlanActions(plan)}<div class="grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">${phaseSections.join("") || `<span class="${MUTED}">No phases</span>`}</div></details>`;
+      return `<details data-key="${esc(planKey)}"${openAttr} class="bg-[#111720] border border-[#232b38] rounded-xl p-2"><summary class="cursor-pointer flex gap-3 items-start"><svg class="chev w-3.5 h-3.5 mt-1.5 shrink-0 text-[#6d7889]" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>${PlanHeading(plan, planStats.percent)}<span class="flex flex-col items-end gap-1.5 shrink-0">${CompletionBadge(planStats)}<span class="${MUTED} text-[11px]">${plan.phases.length} phase${plan.phases.length === 1 ? "" : "s"}</span></span></summary><div class="pl-[22px]"><div class="mb-1">${ProgressBar(planStats.percent, variant)}</div>${PlanActions(plan)}<div class="grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">${phaseSections.join("") || `<span class="${MUTED}">No phases</span>`}</div></div></details>`;
     }
 
     // ============== render ==============
@@ -179,18 +229,18 @@
       const projects = state.data?.projects || [];
       const select = document.querySelector("#project");
       const previous = state.project || select.value;
-      select.innerHTML = projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)} - ${esc(p.path)}</option>`).join("");
+      select.innerHTML = projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)} — ${esc(p.path)}</option>`).join("");
       state.project = projects.some(p => p.id === previous) ? previous : (projects[0]?.id || "");
       select.value = state.project;
       const project = projects.find(p => p.id === state.project);
-      if (!project) { document.querySelector("#content").innerHTML = "No registered projects. Run <code>ppm init</code>."; return; }
+      if (!project) { document.querySelector("#content").innerHTML = `<div class="text-[#8996a8] text-sm border border-dashed border-[#232b38] rounded-lg p-6 text-center">No registered projects. Run <code class="font-mono text-teal-300 bg-[#161d27] px-1.5 py-0.5 rounded">ppm init</code>.</div>`; return; }
       const query = state.query.toLowerCase();
       const plans = project.plans
         .filter(plan => state.filter === "all" || completionClass(stats(plan.phases).percent) === state.filter)
         .map(plan => Plan({ plan, projectId: project.id, query }))
         .filter(Boolean)
         .join("");
-      document.querySelector("#content").innerHTML = plans || "No plans found.";
+      document.querySelector("#content").innerHTML = plans || `<div class="text-[#8996a8] text-sm border border-dashed border-[#232b38] rounded-lg p-6 text-center">No plans found.</div>`;
     }
     async function load() {
       try {
@@ -199,7 +249,7 @@
         state.data = await response.json();
         render();
       } catch (error) {
-        document.querySelector("#content").innerHTML = `<p class="text-red-300">${esc(error.message)}</p>`;
+        document.querySelector("#content").innerHTML = `<p class="text-rose-300 text-sm border border-rose-900/50 bg-rose-950/30 rounded-lg p-3.5">${esc(error.message)}</p>`;
       }
     }
 
@@ -209,16 +259,16 @@
     document.querySelector("#search").addEventListener("input", event => { state.query = event.target.value; render(); });
     document.querySelector("#refresh").addEventListener("click", load);
     document.querySelector("#content").addEventListener("click", async event => {
-      const openButton = event.target.closest(".open-plan");
+      const openButton = event.target.closest("[data-plan]");
       if (openButton) {
         const project = state.data.projects.find(item => item.id === state.project);
         const plan = project?.plans.find(item => item.name === openButton.dataset.plan);
-        document.querySelector("#modal-title").textContent = `${plan?.name || "Plan"} - plan.md`;
+        document.querySelector("#modal-title").textContent = `${plan?.name || "Plan"} — plan.md`;
         document.querySelector("#modal-content").textContent = plan?.content || "plan.md not found or empty.";
         document.querySelector("#plan-modal").showModal();
         return;
       }
-      const button = event.target.closest(".copy-prompt");
+      const button = event.target.closest("[data-prompt]");
       if (!button) return;
       const label = button.textContent;
       try {

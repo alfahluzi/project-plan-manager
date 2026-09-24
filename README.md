@@ -4,6 +4,8 @@ Agent Skill and CLI for structured project plans, phased JSON tasks, progress tr
 
 Canonical layout: lowercase hyphenated `project-plan-manager/SKILL.md` plus three routed flow files under `prompts/`: `planning-flow.md`, `execution-flow.md`, and `audition-flow.md`. `SKILL.md` routes requests to the mandatory flow prompt; this layout is usable by OpenCode, Claude Code, Codex, and other Agent Skills-compatible clients.
 
+![Example](assets/Example.png)
+
 ## Features
 
 - Create and manage `.ppm/<plan-name>/` project plans.
@@ -107,22 +109,34 @@ For planning, executing/resuming plans, or auditing plans before execution, load
 
 ## Usage
 
-Run the CLI from a project root, or pass `--project <path>`:
+Run the CLI from a project root, or pass `--project <path>` to target another project. Run `ppm` with no arguments to print the usage block.
+
+### Setup
 
 ```bash
-ppm init --plan <plan-name>
-ppm task_list --plan <plan-name> --phase phase_0
-ppm task_ready --plan <plan-name> --phase phase_0
-ppm task_blocked --plan <plan-name> --phase phase_0
-ppm task_get --plan <plan-name> --phase phase_0 --task-id TASK-001
-ppm task_in_progress --plan <plan-name> --phase phase_0 --task-id TASK-001
-ppm task_write_progress --plan <plan-name> --phase phase_0 --task-id TASK-001 --progress-text "Verification passed."
-ppm task_completed --plan <plan-name> --phase phase_0 --task-id TASK-001
-ppm dashboard_serve --project <path>
+ppm init [--plan <name>] [--project <path>]
+ppm plan_init --plan <name> [--project <path>]
+ppm migrate [--project <path>] [--dry-run]
+ppm clean_roots [--dry-run]
+ppm dashboard_serve [--project <path>] [--port <port>]
 ppm check_dashboard [--port <port>]
 ```
 
-Phases execute strictly in numeric order. Inside a phase, tasks with no `pre_request` (or `pre_request: []`) can run in parallel; tasks with `pre_request` entries wait until each listed task is `completed`. `ppm task_ready` lists the currently runnable tasks in a phase.
+### Tasks
+
+```bash
+ppm task_list --plan <name> --phase <phase_x> [--project <path>]
+ppm task_ready --plan <name> --phase <phase_x> [--project <path>]
+ppm task_blocked --plan <name> --phase <phase_x> [--project <path>]
+ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
+ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
+ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
+ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
+ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
+ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--project <path>]
+```
+
+`plan_init` is a backward-compatible alias for `init --plan`. Phases execute strictly in numeric order. Inside a phase, tasks with no `pre_request` (or `pre_request: []`) can run in parallel; tasks with `pre_request` entries wait until each listed task is `completed`. `ppm task_ready` lists the currently runnable tasks in a phase.
 
 See [SKILL.md](SKILL.md) for mandatory routing. Follow [planning-flow.md](prompts/planning-flow.md), [execution-flow.md](prompts/execution-flow.md), [audition-flow.md](prompts/audition-flow.md), or [installation-flow.md](prompts/installation-flow.md) for the applicable workflow.
 
