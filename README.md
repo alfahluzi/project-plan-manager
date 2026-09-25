@@ -1,4 +1,4 @@
-# Project Plan Manager
+# Agent Harness Skill: Project Plan Manager
 
 Agent Skill and CLI for structured project plans, phased JSON tasks, progress tracking, and a local dashboard.
 
