@@ -103,12 +103,24 @@ function taskBlockedHandler(options) {
 	process.stdout.write(`${lines.join("\n\n")}\n`);
 }
 
+function eligibility(task, phase) {
+	if (task.status !== "todo") return null;
+	const statusById = new Map(phase.tasks.map((candidate) => [candidate.id, candidate.status]));
+	const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
+	if (deps.length === 0) return "parallel (no pre_request)";
+	return depsSatisfied(task, statusById) ? "ready (pre_request satisfied)" : "blocked (pre_request unmet)";
+}
+
 function taskGetHandler(options) {
 	const { phase } = loadPhase(options);
 	const task = getTask(phase, options["task-id"]);
+	const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
+	const parallel = eligibility(task, phase);
 	printFields([
 		["Title", task.title],
 		["Status", task.status],
+		["Pre-request", deps.length ? deps.join(", ") : "None"],
+		["Eligibility", parallel || "N/A (not todo)"],
 		["Detail", task.detail],
 		["Progress", task.progress || "No progress recorded."],
 	]);
