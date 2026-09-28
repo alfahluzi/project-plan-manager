@@ -15,6 +15,7 @@ Works with OpenCode, Claude Code, Codex, and any Agent Skills-compatible client.
 - **Plan linting**: detects cycles, serial phases, missing ownership, incomplete task context, and missing integration tasks.
 - **Wave view**: `plan_waves` prints the parallel schedule, critical path, and average parallelism.
 - **Safe execution**: status transition guards, phase-order enforcement, lock-protected writes for parallel workers, append-only progress log.
+- **Plan adjustment**: restructure the unfinished part of an older or partially executed plan to current rules; completed work stays frozen and a backup plus adjustment log are kept.
 - **Token-efficient output**: one line per item, empty fields omitted, status commands report what got unblocked.
 - **Local dashboard**: responsive UI with waves, agent badges, validation errors and warnings, and copy-ready Execute/Audit prompts. Bound to `127.0.0.1` only.
 
@@ -64,7 +65,7 @@ To make the agent use this skill automatically for planning, execution, and audi
 
 ```markdown
 <!-- project-plan-manager:start -->
-For planning, executing/resuming plans, or auditing plans before execution, load and use the `project-plan-manager` skill. Follow its routed prompt files and use the `ppm` CLI.
+For planning, executing/resuming, auditing, or adjusting plans, load and use the `project-plan-manager` skill. Follow its routed prompt files and use the `ppm` CLI.
 <!-- project-plan-manager:end -->
 ```
 
@@ -75,8 +76,9 @@ Ask your agent, for example:
 - "Plan adding OAuth login using project-plan-manager"
 - "Audit plan oauth-login"
 - "Execute plan oauth-login"
+- "Adjust plan oauth-login to the current plan format" (for plans created before v2)
 
-`SKILL.md` routes each request to the matching flow in `prompts/`: planning, execution, audition, or installation.
+`SKILL.md` routes each request to the matching flow in `prompts/`: planning, execution, audition, adjustment, or installation.
 
 A phase file looks like this:
 

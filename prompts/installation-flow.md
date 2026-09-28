@@ -62,7 +62,7 @@ Inspect the existing target file before editing. Preserve all existing content. 
 
 ```markdown
 <!-- project-plan-manager:start -->
-For planning, executing/resuming plans, or auditing plans before execution, load and use the `project-plan-manager` skill. Follow its routed prompt files and use the `ppm` CLI.
+For planning, executing/resuming, auditing, or adjusting plans, load and use the `project-plan-manager` skill. Follow its routed prompt files and use the `ppm` CLI.
 <!-- project-plan-manager:end -->
 ```
 

@@ -16,6 +16,7 @@ Read the routed flow file in full before acting. Its instructions are mandatory;
 - Planning, plan creation, or task breakdown: read and follow [prompts/planning-flow.md](prompts/planning-flow.md).
 - Execution, continuation, or resume: read and follow [prompts/execution-flow.md](prompts/execution-flow.md).
 - Auditing, reviewing, or validating a plan before execution: read and follow [prompts/audition-flow.md](prompts/audition-flow.md).
+- Adjusting, upgrading, or restructuring an existing, partially executed plan (for example one written before file ownership and agent hints): read and follow [prompts/adjustment-flow.md](prompts/adjustment-flow.md).
 - Installation, PATH setup, enabling automatic use, or `AGENTS.md` integration: read and follow [prompts/installation-flow.md](prompts/installation-flow.md).
 - If creating then implementing, load `prompts/planning-flow.md` before `prompts/execution-flow.md`. Load `prompts/audition-flow.md` only when explicitly auditing.
 
