@@ -90,13 +90,16 @@ const staticPrefix = (pattern) => pattern.split(/[*?]/)[0];
 
 // Could two ownership patterns refer to the same file?
 // ponytail: glob-vs-glob is approximated by static-prefix containment (conservative, may over-report); use a real glob-intersection lib if false positives hurt.
+// A literal path may be a file or a directory (trailing "/" is optional), so it also owns everything under it.
+const within = (path, root) => path === root || path.startsWith(`${root.replace(/\/\*\*$/, "")}/`);
+
 function patternsOverlap(a, b) {
 	const x = normalize(a), y = normalize(b);
 	if (x === y) return true;
 	const xGlob = /[*?]/.test(x), yGlob = /[*?]/.test(y);
-	if (!xGlob && !yGlob) return false;
-	if (!xGlob) return globToRegex(y).test(x);
-	if (!yGlob) return globToRegex(x).test(y);
+	if (!xGlob && !yGlob) return within(x, y) || within(y, x);
+	if (!xGlob) return globToRegex(y).test(x) || staticPrefix(y).startsWith(`${x}/`);
+	if (!yGlob) return globToRegex(x).test(y) || staticPrefix(x).startsWith(`${y}/`);
 	const px = staticPrefix(x), py = staticPrefix(y);
 	return px.startsWith(py) || py.startsWith(px);
 }
@@ -125,7 +128,8 @@ function lintPhase(phase) {
 	const tasks = phase.tasks;
 	for (const { a, b, shared } of fileConflicts(phase))
 		errors.push(`${a} and ${b} can run concurrently but share files: ${shared.join(", ")} (add pre_request or move shared files to one task)`);
-	if (!tasks.length) return { errors, warnings: ["phase has no tasks"] };
+	// An empty phase would read as "0/0 done" and let a hollow plan look complete.
+	if (!tasks.length) return { errors: ["phase has no tasks (add tasks or delete the phase file)"], warnings };
 
 	const phaseWaves = waves(phase);
 	const width = Math.max(...phaseWaves.map((wave) => wave.length));

@@ -7,6 +7,7 @@ const path = require("node:path");
 const { URL } = require("node:url");
 
 const { PLAN_PATTERN, assertSafeSegment, projectRoot, readPhase, listPhaseNames } = require("../_shared/phase");
+const { lintPhase, waves, criticalPath } = require("../_shared/analysis");
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "project-plan-manager");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
@@ -128,7 +129,20 @@ function readPlanData(plansRoot, name) {
 			const filePath = path.join(planRoot, "tasks", `${phaseName}.json`);
 			try {
 				const phase = readPhase(filePath, phaseName);
-				return [{ name: phaseName, title: phase.title || phaseName, filePath, tasks: phase.tasks }];
+				// Same analysis as plan_validate / plan_waves so the UI never looks healthier than the CLI says.
+				const lint = lintPhase(phase);
+				const wave = {};
+				waves(phase).forEach((tasks, index) => tasks.forEach((task) => { wave[task.id] = index + 1; }));
+				return [{
+					name: phaseName,
+					title: phase.title || phaseName,
+					filePath,
+					tasks: phase.tasks,
+					errors: lint.errors,
+					warnings: lint.warnings,
+					wave,
+					criticalPath: criticalPath(phase),
+				}];
 			} catch (error) {
 				errors.push(`${phaseName}: ${error.message}`);
 				return [];
@@ -171,7 +185,10 @@ function dashboardResponse(response, status, body, contentType) {
 function dashboardServeHandler(options) {
 	const htmlPath = path.resolve(__dirname, "../../../templates/task.html");
 	const port = options.port === undefined ? 4173 : Number(options.port);
+	// DNS-rebinding guard: a hostile page resolving its own domain to 127.0.0.1 would send a foreign Host header.
+	const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
 	const server = http.createServer((request, response) => {
+		if (!allowedHosts.has(String(request.headers.host || "").toLowerCase())) return dashboardResponse(response, 403, JSON.stringify({ error: "Forbidden host" }), "application/json; charset=utf-8");
 		if (request.method !== "GET") return dashboardResponse(response, 405, JSON.stringify({ error: "Method not allowed" }), "application/json; charset=utf-8");
 		const route = new URL(request.url, "http://127.0.0.1").pathname;
 		try {
@@ -181,6 +198,13 @@ function dashboardServeHandler(options) {
 		} catch (error) {
 			return dashboardResponse(response, 500, JSON.stringify({ error: error.message }), "application/json; charset=utf-8");
 		}
+	});
+	server.on("error", (error) => {
+		const reason = error.code === "EADDRINUSE"
+			? `port ${port} is already in use. Run \`ppm check_dashboard --port ${port}\`: if it reports running, reuse it; otherwise pick another --port`
+			: error.message;
+		process.stderr.write(`Error: dashboard failed to start: ${reason}\n`);
+		process.exitCode = 1;
 	});
 	server.listen(port, "127.0.0.1", () => process.stdout.write(`Dashboard available at http://127.0.0.1:${port}/task.html\n`));
 }
@@ -211,12 +235,16 @@ function dashboardHealthHandler(options) {
 			process.stdout.write(`Dashboard running: ${pageUrl}\nProjects: ${projects.length}; Plans: ${plans}\n`);
 		});
 	});
+	// Something holds the port but does not answer: that is unhealthy (exit 2), not "not running".
+	let timedOut = false;
 	request.on("timeout", () => {
+		timedOut = true;
 		request.destroy();
-		process.stdout.write(`Dashboard not responding: ${url} (timeout)\nStart with: ppm dashboard_serve --port ${port}\n`);
-		process.exitCode = 1;
+		process.stdout.write(`Dashboard unhealthy: ${url} did not respond within 2s\n`);
+		process.exitCode = 2;
 	});
 	request.on("error", (error) => {
+		if (timedOut) return; // destroy() after timeout also emits an error; already reported.
 		if (error.code === "ECONNREFUSED") {
 			process.stdout.write(`Dashboard not running: ${pageUrl}\nStart with: ppm dashboard_serve --port ${port}\n`);
 			process.exitCode = 1;

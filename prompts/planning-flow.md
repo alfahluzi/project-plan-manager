@@ -94,7 +94,7 @@ Invariants:
 - Status is exactly `todo`, `in_progress`, `completed`, or `fail`. New tasks start as `todo`.
 - `progress` is a concise, factual execution record, verification evidence, or failure context.
 - `pre_request` is optional. When present it lists task IDs within the same phase that must reach `completed` before this task can start. Omit it, or use `[]`, for independent parallel-eligible tasks. Entries must reference existing task IDs in the same phase, must not include the task itself, must not duplicate, and must not form cycles.
-- `files` is the task's write ownership: repo-relative paths, directories (trailing `/`), or globs (`*`, `**`, `?`). No absolute paths, no `..`. A task may read anything but must only modify files it owns.
+- `files` is the task's write ownership: repo-relative paths or globs (`*`, `**`, `?`). A literal path owns itself and everything under it, so `src/users` and `src/users/` both cover `src/users/x.ts`. No absolute paths, no `..`. A task may read anything but must only modify files it owns.
 - `agent` is a client-agnostic role hint: `explore` (read-only investigation), `implement` (code change), `review` (read-only diff/plan review), or `verify` (run checks, report evidence). The executor maps it to whatever sub agents the client provides.
 
 ## Designing for parallel sub-agent execution
@@ -151,7 +151,7 @@ ppm plan_validate --plan <plan-name> [--project <project-path>]
 ppm plan_waves --plan <plan-name> [--project <project-path>]
 ```
 
-- `plan_validate` errors (schema, cycles, concurrent file overlap) must be fixed. Warnings (serial phase, missing ownership, missing context-packet sections, no closing task, no agent hint) should be fixed or justified in the report. `--strict` treats warnings as errors.
+- `plan_validate` errors (schema, cycles, concurrent file overlap, empty phase, missing `plan.md`) must be fixed. Warnings (serial phase, missing ownership, missing context-packet sections, no closing task, no agent hint) should be fixed or justified in the report. `--strict` treats warnings as errors.
 - `plan_waves` shows waves per phase, critical path, peak width, and average parallelism. If most waves have width 1, or the critical path equals the task count, restructure: remove false dependencies, split tasks, or merge phases.
 
 Report changed files, unresolved questions, and the final `plan_validate` and `plan_waves` output as verification.

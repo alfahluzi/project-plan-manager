@@ -1,105 +1,66 @@
-# Agent Harness Skill: Project Plan Manager
+# Project Plan Manager
 
-Agent Skill and CLI for structured project plans, phased JSON tasks, progress tracking, and a local dashboard.
+Agent Skill and zero-dependency CLI (`ppm`) for planning, executing, and auditing multi-phase project plans with AI coding agents, designed for orchestrators that dispatch work to parallel sub agents.
 
-Canonical layout: lowercase hyphenated `project-plan-manager/SKILL.md` plus four routed flow files under `prompts/`: `planning-flow.md`, `execution-flow.md`, `audition-flow.md`, and `installation-flow.md`. `SKILL.md` routes requests to the mandatory flow prompt; this layout is usable by OpenCode, Claude Code, Codex, and other Agent Skills-compatible clients.
+Works with OpenCode, Claude Code, Codex, and any Agent Skills-compatible client.
 
-![Example](assets/Example.png)
+![Dashboard](assets/Example.png)
 
 ## Features
 
-- Create and manage `.ppm/<plan-name>/` project plans.
-- Track ordered phases and task status with a JSON contract.
-- Register project roots in a user-local configuration file.
-- Serve a local dashboard bound to `127.0.0.1`.
-- Migrate legacy `docs/plans/` layouts.
+- **Structured plans**: `plan.md` plus one JSON file per phase under `<project>/.ppm/<plan>/`.
+- **Parallel-aware scheduling**: phases are sync barriers; tasks inside a phase run in waves driven by `pre_request` dependencies.
+- **File ownership**: each task declares the files it may modify. `plan_validate` rejects plans where concurrent tasks own the same file.
+- **Sub-agent role hints**: `agent: explore | implement | review | verify` lets the orchestrator pick the right worker.
+- **Plan linting**: detects cycles, serial phases, missing ownership, incomplete task context, and missing integration tasks.
+- **Wave view**: `plan_waves` prints the parallel schedule, critical path, and average parallelism.
+- **Safe execution**: status transition guards, phase-order enforcement, lock-protected writes for parallel workers, append-only progress log.
+- **Token-efficient output**: one line per item, empty fields omitted, status commands report what got unblocked.
+- **Local dashboard**: responsive UI with waves, agent badges, validation errors and warnings, and copy-ready Execute/Audit prompts. Bound to `127.0.0.1` only.
 
 ## Requirements
 
-- Node.js >=18
-- An Agent Skills-compatible client for skill instructions
+- Node.js >= 18 and `npm`
+- An Agent Skills-compatible client that can run local commands
 
 ## Installation
 
-### One-shot installer
-
-The repo ships with `install.sh`, which copies (or symlinks) the skill into the chosen agent's skills directory and runs `npm link` so `ppm` becomes available globally.
+### One-shot installer (Linux/macOS, WSL, Git Bash)
 
 ```bash
-git clone <repository-url> project-plan-manager
+git clone https://github.com/alfahluzi/project-plan-manager.git
 cd project-plan-manager
-./install.sh                            # copy mode, OpenCode
-./install.sh --client claude            # Claude Code
-./install.sh --client codex             # Codex
-./install.sh --client all               # install for all three at once
-./install.sh --mode link                # symlink source repo (live development)
-./install.sh --uninstall                # remove skill + unlink ppm
+./install.sh                     # OpenCode (default), copy mode
+./install.sh --client claude     # Claude Code
+./install.sh --client codex      # Codex
+./install.sh --client all        # all three
+./install.sh --mode link         # symlink this checkout instead of copying (for development)
+./install.sh --uninstall         # remove the skill; add --client to target one client
 ```
 
-Requires Node.js >=18 and `npm` on `PATH`. POSIX shell (Linux/macOS); Windows users should run under WSL or Git Bash.
+The installer copies the skill into the client's skills directory and runs `npm link` once so `ppm` is on `PATH`. Cloning directly into a skills directory and running `./install.sh` there is also safe: that checkout is used in place.
+
+| Client | Skills directory |
+|---|---|
+| OpenCode | `~/.config/opencode/skills/project-plan-manager` |
+| Claude Code | `~/.claude/skills/project-plan-manager` |
+| Codex | `~/.agents/skills/project-plan-manager` |
 
 ### Manual installation
 
-#### OpenCode default skills directory
-
 ```bash
-git clone <repository-url> ~/.config/opencode/skills/project-plan-manager
-cd ~/.config/opencode/skills/project-plan-manager
-npm link
-```
-
-#### Claude Code user skill directory
-
-```bash
-git clone <repository-url> ~/.claude/skills/project-plan-manager
+git clone https://github.com/alfahluzi/project-plan-manager.git ~/.claude/skills/project-plan-manager
 cd ~/.claude/skills/project-plan-manager
 npm link
 ```
 
-#### Codex user skill directory
+For other clients, clone into the client's configured skills directory, keeping the folder name `project-plan-manager`, then run `npm link`.
 
-Copy or clone the folder into the Agent Skills-compatible user skills location configured for Codex, commonly `~/.agents/skills/project-plan-manager`, then run `npm link` from the cloned package directory.
+If `command -v ppm` (Windows: `where ppm`) prints nothing, add npm's global bin directory to `PATH`: `<prefix>/bin` on Unix/macOS, where `<prefix>` is the output of `npm prefix -g`. Restart the terminal and the agent client afterwards.
 
-#### Generic Agent Skills-compatible client
+### Optional: automatic use
 
-Copy or clone the folder into the client's configured skills directory, preserving the lowercase hyphenated folder name:
-
-```json
-{
-  "skills": {
-    "paths": ["/path/to/project-plan-manager"]
-  }
-}
-```
-
-From the cloned package directory, each installation flow exposes `ppm` globally:
-
-```bash
-npm link
-```
-
-`npm link` normally creates a global `ppm` shim. The npm global executable directory must also be on `PATH`.
-
-```bash
-command -v ppm
-npm prefix -g
-```
-
-On Unix/macOS, the executable is usually under `<prefix>/bin`. If `command -v ppm` returns nothing, add the directory represented by your own `npm prefix -g` output to your shell `PATH`, for example:
-
-```bash
-export PATH="<prefix>/bin:$PATH"
-```
-
-Persist that change only after reviewing the appropriate shell profile. Never edit a shell profile silently. On Windows, ensure the npm global prefix directory is on `PATH`; verify with `where ppm`. Restart the terminal and agent client after changing `PATH` or installing/configuring the skill.
-
-If the shim is missing, run `npm link` again from the package directory. Do not use the package's full `bin/ppm.js` path as the routine invocation.
-
-### Optional automatic-use setup
-
-The skill can be enabled automatically for planning, execution, and plan audits through the user-level `AGENTS.md` used by your client. The path depends on the client and environment; it is not necessarily the project `AGENTS.md`. Editing it requires explicit consent. Follow [prompts/installation-flow.md](prompts/installation-flow.md), which asks before any external configuration change.
-
-Users may manually add this bounded block after confirming the actual user-level file:
+To make the agent use this skill automatically for planning, execution, and audits, add this block to your client's **user-level** `AGENTS.md` (or ask the agent to run the installation flow, which asks before editing anything):
 
 ```markdown
 <!-- project-plan-manager:start -->
@@ -107,17 +68,68 @@ For planning, executing/resuming plans, or auditing plans before execution, load
 <!-- project-plan-manager:end -->
 ```
 
-## Usage
+## Quickstart
 
-Run the CLI from a project root, or pass `--project <path>` to target another project. Run `ppm` with no arguments to print the usage block.
+Ask your agent, for example:
 
-### Setup
+- "Plan adding OAuth login using project-plan-manager"
+- "Audit plan oauth-login"
+- "Execute plan oauth-login"
+
+`SKILL.md` routes each request to the matching flow in `prompts/`: planning, execution, audition, or installation.
+
+A phase file looks like this:
+
+```json
+{
+  "phase": "phase_1",
+  "title": "Endpoints",
+  "tasks": [
+    {
+      "id": "API-1",
+      "title": "Users endpoint",
+      "agent": "implement",
+      "files": ["src/users/"],
+      "detail": "Goal: ...\nFiles: ...\nContract: ...\nSteps: ...\nVerify: npm test\nDone when: ...",
+      "status": "todo",
+      "progress": ""
+    },
+    {
+      "id": "API-3",
+      "title": "Register routes and run suite",
+      "agent": "verify",
+      "files": ["src/routes.ts"],
+      "detail": "...",
+      "status": "todo",
+      "progress": "",
+      "pre_request": ["API-1"]
+    }
+  ]
+}
+```
+
+Check it before execution:
+
+```text
+$ ppm plan_waves --plan oauth-login
+## phase_1 - Endpoints
+Wave 1 (1): API-1 [implement]
+Wave 2 (1): API-3 [verify]
+Critical path (2): API-1 -> API-3
+...
+```
+
+## CLI reference
+
+Run from a project root, or add `--project <path>` to any command. `ppm` with no arguments prints usage.
+
+### Setup and dashboard
 
 ```bash
 ppm init [--plan <name>] [--project <path>]
-ppm plan_init --plan <name> [--project <path>]
-ppm migrate [--project <path>] [--dry-run]
-ppm clean_roots [--dry-run]
+ppm plan_init --plan <name> [--project <path>]        # alias of init --plan
+ppm migrate [--project <path>] [--dry-run]            # legacy docs/plans/ -> .ppm/
+ppm clean_roots [--dry-run]                           # drop dead project registrations
 ppm dashboard_serve [--project <path>] [--port <port>]
 ppm check_dashboard [--port <port>]
 ```
@@ -130,48 +142,64 @@ ppm plan_status --plan <name> [--project <path>]
 ppm plan_waves --plan <name> [--project <path>]
 ```
 
-`plan_validate` checks schema, cycles, and fails when tasks that can run concurrently own overlapping `files`. It also warns about serial phases, missing ownership, incomplete context packets, missing closing task, and missing `agent` hints (`--strict` turns warnings into errors). `plan_waves` prints the parallel wave schedule, critical path, peak width, and average parallelism.
-
-Optional task fields for sub-agent execution: `files` (write ownership: repo-relative paths, `dir/`, or globs) and `agent` (`explore|implement|review|verify` role hint).
+- `plan_validate` errors on schema problems, `pre_request` cycles, concurrent tasks owning overlapping `files`, empty phases, and a missing `plan.md`. It warns on serial phases, missing ownership, incomplete task context, missing closing task, and missing `agent` hints. `--strict` turns warnings into errors.
+- `plan_status` prints `done/total` per phase, lists in-progress and failed task IDs, and names the current phase.
+- `plan_waves` prints the wave schedule, critical path, peak width, and average parallelism.
 
 ### Tasks
 
 ```bash
-ppm task_list --plan <name> --phase <phase_x> [--project <path>]
-ppm task_ready --plan <name> --phase <phase_x> [--project <path>]
-ppm task_blocked --plan <name> --phase <phase_x> [--project <path>]
-ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
-ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
-ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
-ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
-ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
-ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--replace] [--project <path>]
+ppm task_list --plan <name> --phase <phase_x>
+ppm task_ready --plan <name> --phase <phase_x>
+ppm task_blocked --plan <name> --phase <phase_x>
+ppm task_get --plan <name> --phase <phase_x> --task-id <id>
+ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--force]
+ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--force]
+ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--force]
+ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--force]
+ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--replace]
 ```
 
-`plan_init` is a backward-compatible alias for `init --plan`. Phases execute strictly in numeric order. Inside a phase, tasks with no `pre_request` (or `pre_request: []`) can run in parallel; tasks with `pre_request` entries wait until each listed task is `completed`. `ppm task_ready` lists the currently runnable tasks in a phase.
+- Status transitions: `todo|fail -> in_progress -> completed|fail`, `todo -> fail`, and `task_reset` returns any status to `todo`. `task_in_progress` also refuses tasks with unmet `pre_request` and tasks in a phase whose earlier phases are not complete. `--force` skips these guards for manual repair only.
+- `task_write_progress` appends a timestamped entry; `--replace` overwrites the log.
+- Writes to a phase file are serialized with a lockfile, so parallel workers do not lose updates.
 
-Status commands enforce transitions (`todo|fail -> in_progress -> completed|fail`, `task_reset` back to `todo`); `task_in_progress` also refuses blocked tasks and tasks in a phase whose predecessors are not fully completed. `--force` skips these guards for manual repair. Writes to a phase file are serialized with a lockfile, so parallel lanes are safe. `task_write_progress` appends a timestamped entry; `--replace` overwrites.
+### Task fields
 
-See [SKILL.md](SKILL.md) for mandatory routing. Follow [planning-flow.md](prompts/planning-flow.md), [execution-flow.md](prompts/execution-flow.md), [audition-flow.md](prompts/audition-flow.md), or [installation-flow.md](prompts/installation-flow.md) for the applicable workflow.
+| Field | Required | Meaning |
+|---|---|---|
+| `id`, `title`, `detail` | yes | Stable ID, short title, self-contained context packet (`Goal`, `Files`, `Contract`, `Steps`, `Verify`, `Done when`) |
+| `status` | yes | `todo`, `in_progress`, `completed`, or `fail` |
+| `progress` | yes | Execution log (may be `""`) |
+| `pre_request` | no | IDs in the same phase that must be `completed` first |
+| `files` | no | Write ownership: repo-relative paths or globs. A literal path also covers everything under it. |
+| `agent` | no | `explore`, `implement`, `review`, or `verify` |
 
-## Data and configuration locations
+## Dashboard
 
-- Project plans and task data: `<project>/.ppm/`
+```bash
+ppm dashboard_serve            # http://127.0.0.1:4173/task.html
+```
+
+Shows every registered project (or only `--project`). Plans are sorted by completion, lowest first. Phases and tasks are collapsible, and the current phase opens by default. Buttons copy ready-made Execute/Audit prompts for your agent. The page loads Tailwind and fonts from public CDNs, so it needs internet access to render styled.
+
+## Data locations
+
+- Plans and task data: `<project>/.ppm/`
 - Registered project roots: `~/.config/project-plan-manager/config.json`
-- Dashboard: served from the package's `templates/task.html`; it is not copied into projects.
+- Dashboard page: served from this package's `templates/task.html`; nothing is copied into projects.
 
 ## Security and privacy
 
-The CLI writes project paths and task data locally. Do not publish `config.json`, `.ppm/`, project plans, task progress, or other private project data. Review staged files before publishing this package. The dashboard binds to `127.0.0.1` by default and is not an authenticated service.
+Everything stays on your machine. The dashboard binds to `127.0.0.1`, rejects requests whose `Host` header is not `127.0.0.1` or `localhost` (DNS-rebinding guard), serves `GET` only, and has no authentication. Do not publish `.ppm/` or `config.json` if your plans contain private information.
 
-## Development verification
-
-From the package directory:
+## Development
 
 ```bash
-npm run check        # runs test/self-check.js against the real CLI (loads every bin/ module)
-ppm
-npm pack --dry-run
+npm run check        # test/self-check.js: runs the real CLI against a temp project
+npm pack --dry-run   # inspect the published file list
 ```
 
-The no-argument `ppm` command is expected to print usage/error output and exit nonzero.
+## License
+
+[MIT](LICENSE)

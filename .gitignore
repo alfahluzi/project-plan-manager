@@ -7,3 +7,6 @@ yarn-error.log*
 Thumbs.db
 config.json
 .ppm/
+.opencode/
+.playwright-mcp/
+*.tgz

@@ -28,7 +28,7 @@
     summary { list-style: none; }
     summary::-webkit-details-marker { display: none; }
     .chev { transition: transform .18s ease; }
-    details[open] > summary .chev { transform: rotate(90deg); }
+    details[open] > summary > .chev { transform: rotate(90deg); }
     .task-body { animation: reveal .15s ease; }
     @keyframes reveal { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
     ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -41,31 +41,31 @@
     }
   </style>
 </head>
-<body class="bg-[#0a0e14] text-[#dde3ec] font-sans antialiased max-w-[1400px] mx-auto px-6 py-8 selection:bg-teal-500/30">
-  <header class="flex gap-2.5 items-center flex-wrap mb-3 pb-3 border-b border-[#1c2431]">
-    <div class="mr-2 flex items-baseline gap-2">
-      <h1 class="text-[1.1rem] font-semibold tracking-tight text-white m-0">Project Plan Manager</h1>
+<body class="bg-[#0a0e14] text-[#dde3ec] font-sans antialiased max-w-[1400px] mx-auto px-3 py-4 sm:px-6 sm:py-8 selection:bg-teal-500/30">
+  <header class="flex gap-2 items-center flex-wrap mb-3 pb-3 border-b border-[#1c2431]">
+    <div class="mr-auto sm:mr-2 flex items-baseline gap-2">
+      <h1 class="text-base sm:text-[1.1rem] font-semibold tracking-tight text-white m-0">Project Plan Manager</h1>
       <span class="font-mono text-[11px] text-[#5b6577]">ppm</span>
     </div>
-    <select id="project" class="text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors"></select>
-    <button id="refresh" class="text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3.5 py-1.5 text-sm cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors focus-visible:ring-2 focus-visible:ring-teal-500/60 outline-none">Refresh</button>
-    <select id="plan-filter" class="text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors">
+    <button id="refresh" class="order-2 sm:order-none text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-xs sm:text-sm cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors focus-visible:ring-2 focus-visible:ring-teal-500/60 outline-none">Refresh</button>
+    <select id="project" aria-label="Project" class="order-3 sm:order-none w-full sm:w-auto min-w-0 sm:max-w-[420px] truncate text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-2.5 py-1.5 text-xs sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors"></select>
+    <select id="plan-filter" aria-label="Completion filter" class="order-4 sm:order-none text-[#dde3ec] bg-[#111720] border border-[#232b38] rounded-md px-2.5 py-1.5 text-xs sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors">
       <option value="all">All plans</option>
       <option value="zero">0%</option>
       <option value="partial">1–99%</option>
       <option value="complete">100%</option>
     </select>
-    <input id="search" placeholder="Search tasks…" class="text-[#dde3ec] placeholder:text-[#5b6577] bg-[#111720] border border-[#232b38] rounded-md px-3 py-1.5 text-sm min-w-[240px] outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors">
+    <input id="search" type="search" aria-label="Search tasks" placeholder="Search tasks, files, agent…" class="order-5 sm:order-none flex-1 min-w-0 sm:min-w-[240px] sm:flex-none text-[#dde3ec] placeholder:text-[#5b6577] bg-[#111720] border border-[#232b38] rounded-md px-2.5 py-1.5 text-xs sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 hover:border-[#2d3747] transition-colors">
   </header>
   <main id="content" class="space-y-2">
     <p class="text-[#5b6577] text-sm">Loading…</p>
   </main>
-  <dialog id="plan-modal" class="w-[min(900px,90vw)] max-h-[85vh] text-[#dde3ec] bg-[#0d1218] border border-[#232b38] rounded-xl p-0 shadow-2xl shadow-black/60">
-    <div class="sticky top-0 flex items-center gap-3 px-4 py-3 bg-[#111720] border-b border-[#232b38] rounded-t-xl">
-      <strong id="modal-title" class="mr-auto text-sm font-medium text-white"></strong>
+  <dialog id="plan-modal" class="w-[min(900px,94vw)] max-h-[85vh] text-[#dde3ec] bg-[#0d1218] border border-[#232b38] rounded-xl p-0 shadow-2xl shadow-black/60">
+    <div class="sticky top-0 flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#111720] border-b border-[#232b38] rounded-t-xl">
+      <strong id="modal-title" class="mr-auto text-sm font-medium text-white truncate"></strong>
       <button id="modal-close" class="text-[#dde3ec] bg-[#181f2a] border border-[#232b38] rounded-md px-3 py-1.5 text-xs cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors">Close</button>
     </div>
-    <pre id="modal-content" class="p-4 m-0 overflow-auto whitespace-pre-wrap text-[12px] leading-relaxed font-mono text-[#c3ccd9]"></pre>
+    <pre id="modal-content" class="p-3 sm:p-4 m-0 overflow-auto whitespace-pre-wrap text-[11px] sm:text-[12px] leading-relaxed font-mono text-[#c3ccd9]"></pre>
   </dialog>
   <script>
     // ============== state ==============
@@ -84,12 +84,17 @@
       fail: "bg-rose-500",
       todo: "bg-amber-400",
     };
-    const TASK_BASE = "border-l-2 bg-[#111720] hover:bg-[#141b26] rounded-r-lg px-3.5 py-1 my-2 transition-colors";
-    const BADGE_BASE = "inline-flex items-center gap-1 text-[8px] font-semibold tracking-wide px-2 py-0 rounded-full border font-mono";
+    const TASK_BASE = "border-l-2 bg-[#111720] hover:bg-[#141b26] rounded-r-lg px-2.5 sm:px-3.5 py-1 my-1.5 sm:my-2 transition-colors";
+    const BADGE_BASE = "inline-flex items-center gap-1 text-[10px] leading-4 font-semibold tracking-wide px-1.5 rounded-full border font-mono whitespace-nowrap";
     const BADGE_VARIANT = {
       ready: "text-emerald-300 bg-emerald-950/60 border-emerald-800/70",
       blocked: "text-amber-300 bg-amber-950/60 border-amber-800/70",
+      stuck: "text-rose-300 bg-rose-950/60 border-rose-800/70",
       parallel: "text-sky-300 bg-sky-950/60 border-sky-800/70",
+      waiting: "text-[#8996a8] bg-[#161d27] border-[#2d3747]",
+      current: "text-teal-300 bg-teal-950/60 border-teal-800/70",
+      agent: "text-violet-300 bg-violet-950/50 border-violet-800/60",
+      wave: "text-[#8996a8] bg-transparent border-[#2d3747]",
     };
     const COMPLETION_VARIANT = {
       zero: { text: "text-[#8996a8]", bar: "bg-[#39424f]" },
@@ -101,9 +106,11 @@
       partial: "text-amber-100",
       complete: "text-emerald-100",
     };
-    const MUTED = "text-[#8996a8] text-[13px]";
-    const BUTTON = "text-[#c3ccd9] bg-[#161d27] border border-[#232b38] rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors";
-    const BUTTON_PRIMARY = "text-[#0a0e14] bg-teal-400 border border-teal-400 rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer hover:bg-teal-300 transition-colors";
+    const MUTED = "text-[#8996a8] text-[12px] sm:text-[13px]";
+    const META = "font-mono text-[10.5px] sm:text-[11px] text-[#6d7889]";
+    const BUTTON = "text-[#c3ccd9] bg-[#161d27] border border-[#232b38] rounded-md px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium cursor-pointer hover:border-teal-500/50 hover:text-teal-300 transition-colors";
+    const BUTTON_PRIMARY = "text-[#0a0e14] bg-teal-400 border border-teal-400 rounded-md px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold cursor-pointer hover:bg-teal-300 transition-colors";
+    const CHEVRON = `<svg class="chev w-3.5 h-3.5 mt-1 shrink-0 text-[#6d7889]" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
     // ============== helpers ==============
     function esc(value) {
@@ -112,6 +119,7 @@
     function cls(...parts) {
       return parts.filter(Boolean).join(" ");
     }
+    const list = value => (Array.isArray(value) ? value : []);
     function rememberAccordions() {
       document.querySelectorAll("#content details[data-key]").forEach(item => state.open.set(item.dataset.key, item.open));
     }
@@ -126,9 +134,16 @@
     function titleClass(percent) {
       return TITLE_VARIANT[completionClass(percent)];
     }
-    function depsSatisfied(task, statusById) {
-      const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
-      return deps.every(id => statusById.get(id) === "completed");
+    // Mirrors ppm plan_status: first phase that is not fully completed.
+    function currentPhaseName(plan) {
+      return plan.phases.find(phase => phase.tasks.some(task => task.status !== "completed"))?.name || null;
+    }
+    // Ascending completion; ties keep name order (server sorts by name).
+    function byCompletion(a, b) {
+      return a.percent - b.percent;
+    }
+    function isOpen(key, fallback) {
+      return state.open.has(key) ? state.open.get(key) : fallback;
     }
 
     // ============== primitive components ==============
@@ -138,7 +153,7 @@
     }
     function ProgressBar(percent, variant) {
       const v = COMPLETION_VARIANT[variant];
-      return `<div class="h-1 w-full rounded-full bg-[#1c2431] overflow-hidden"><div class="${cls("h-full rounded-full transition-[width]", v.bar)}" style="width:${percent}%"></div></div>`;
+      return `<div class="h-1 w-full rounded-full bg-[#1c2431] overflow-hidden" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="${cls("h-full rounded-full transition-[width]", v.bar)}" style="width:${percent}%"></div></div>`;
     }
     function CompletionBadge(stats) {
       const variant = completionClass(stats.percent);
@@ -149,37 +164,48 @@
       const attrs = Object.entries(dataset)
         .map(([k, v]) => ` data-${esc(k)}="${esc(v)}"`)
         .join("");
-      return `<button class="${esc(className)}"${attrs}>${esc(label)}</button>`;
+      return `<button type="button" class="${esc(className)}"${attrs}>${esc(label)}</button>`;
+    }
+    function Notice(kind, items) {
+      if (!items.length) return "";
+      const tone = kind === "error" ? "text-rose-300 border-rose-900/50 bg-rose-950/30" : "text-amber-200/90 border-amber-900/50 bg-amber-950/20";
+      const label = kind === "error" ? `Errors (${items.length})` : `Warnings (${items.length})`;
+      return `<div class="${cls("text-[11px] sm:text-[12px] font-mono border rounded-lg px-2.5 py-2 my-2 break-words", tone)}"><div class="font-semibold mb-0.5">${label}</div>${items.map(item => `<div>• ${esc(item)}</div>`).join("")}</div>`;
     }
 
     // ============== task components ==============
-    function TaskBadge(task, statusById) {
+    // Mirrors CLI eligibility: phase order first, then pre_request (a failed dep means stuck, not just waiting).
+    function TaskBadge(task, ctx) {
       if (task.status !== "todo") return "";
-      const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
-      if (deps.length === 0) return Badge("parallel", "parallel", "No pre_request dependencies");
-      if (depsSatisfied(task, statusById)) return Badge("ready", "ready", "All pre_request deps completed");
-      return Badge("blocked", "blocked", "Waiting on pre_request deps");
+      if (ctx.phaseState === "waiting") return Badge("waiting", "waiting phase", `Starts after ${ctx.current} is completed`);
+      const unmet = list(task.pre_request).filter(id => ctx.statusById.get(id) !== "completed");
+      if (!unmet.length) return list(task.pre_request).length
+        ? Badge("ready", "ready", "All pre_request deps completed")
+        : Badge("parallel", "parallel", "No pre_request dependencies");
+      const failed = unmet.filter(id => ctx.statusById.get(id) === "fail");
+      if (failed.length) return Badge("stuck", `stuck: ${failed.join(", ")} failed`, `Blocked by failed task(s): ${failed.join(", ")}. Reset or retry them.`);
+      return Badge("blocked", `waiting ${unmet.join(", ")}`, `Waiting on pre_request: ${unmet.join(", ")}`);
     }
-    function TaskSummary(task, statusById) {
-      const dot = `<span class="${cls("inline-block w-1.5 h-1.5 rounded-full", TASK_DOT[task.status])}"></span>`;
-      return `<span class="flex items-center gap-2 min-w-0"><span class="font-mono text-[11px] text-[#5b6577] shrink-0">${esc(task.id)}</span><span class="truncate text-[13.5px] text-[#dde3ec]">${esc(task.title)}</span></span><span class="flex items-center gap-2">${dot}<span class="${cls(MUTED, "font-mono text-[11px]")}">${esc(task.status)}</span>${TaskBadge(task, statusById)}</span>`;
-    }
-    function DepsLine(task) {
-      const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
-      return deps.length ? `<div class="font-mono text-[11px] text-[#6d7889]">pre_request: ${deps.map(esc).join(", ")}</div>` : "";
-    }
-    function OwnershipLine(task) {
-      const files = Array.isArray(task.files) ? task.files : [];
-      const agent = task.agent ? `<div class="font-mono text-[11px] text-[#6d7889]">agent: ${esc(task.agent)}</div>` : "";
-      return agent + (files.length ? `<div class="font-mono text-[11px] text-[#6d7889] break-all">files: ${files.map(esc).join(", ")}</div>` : "");
+    function TaskSummary(task, ctx) {
+      const dot = `<span class="${cls("inline-block w-1.5 h-1.5 rounded-full shrink-0", TASK_DOT[task.status])}"></span>`;
+      const wave = ctx.wave[task.id] ? Badge("wave", `W${ctx.wave[task.id]}`, `Wave ${ctx.wave[task.id]} of this phase`) : "";
+      const agent = task.agent ? Badge("agent", task.agent, "Agent role hint") : "";
+      return `<span class="flex items-center gap-2 min-w-0 w-full"><span class="font-mono text-[10.5px] sm:text-[11px] text-[#5b6577] shrink-0">${esc(task.id)}</span><span class="truncate text-[13px] sm:text-[13.5px] text-[#dde3ec]">${esc(task.title)}</span></span><span class="flex flex-wrap items-center gap-1.5 mt-1 sm:mt-0 sm:justify-end">${dot}<span class="${cls(MUTED, "font-mono text-[11px]")}">${esc(task.status)}</span>${wave}${agent}${TaskBadge(task, ctx)}</span>`;
     }
     function TaskBody(task) {
-      return `<div class="task-body pt-2.5 pl-[1px]">${DepsLine(task)}${OwnershipLine(task)}<section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Detail</div><p class="text-[13px] text-[#b7c0cc] leading-snug mt-1">${esc(task.detail)}</p></section><section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Progress</div><div class="text-[13px] text-[#b7c0cc] leading-snug mt-1 whitespace-pre-wrap">${esc(task.progress || "No progress recorded.")}</div></section></div>`;
+      const deps = list(task.pre_request);
+      const files = list(task.files);
+      const meta = [
+        deps.length ? `<div class="${META}">pre_request: ${deps.map(esc).join(", ")}</div>` : "",
+        task.agent ? `<div class="${META}">agent: ${esc(task.agent)}</div>` : "",
+        files.length ? `<div class="${META} break-all">files: ${files.map(esc).join(", ")}</div>` : "",
+      ].join("");
+      const section = (label, body) => `<section class="mt-2"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">${label}</div><div class="text-[12px] sm:text-[13px] text-[#b7c0cc] leading-snug mt-1 whitespace-pre-wrap break-words">${esc(body)}</div></section>`;
+      return `<div class="task-body pt-2 pl-[1px]">${meta}${section("Detail", task.detail)}${task.progress ? section("Progress", task.progress) : ""}</div>`;
     }
-    function TaskRow({ task, statusById, open }) {
-      const taskClass = cls(TASK_BASE, TASK_BORDER[task.status]);
-      const openAttr = open.open ? " open" : "";
-      return `<details class="${taskClass}" data-key="${esc(open.key)}"${openAttr}><summary class="cursor-pointer items-center justify-between gap-1">${TaskSummary(task, statusById)}</summary>${TaskBody(task)}</details>`;
+    function TaskRow({ task, ctx, key }) {
+      const openAttr = isOpen(key, false) ? " open" : "";
+      return `<details class="${cls(TASK_BASE, TASK_BORDER[task.status])}" data-key="${esc(key)}"${openAttr}><summary class="cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-0.5 sm:gap-2 py-0.5">${TaskSummary(task, ctx)}</summary>${TaskBody(task)}</details>`;
     }
 
     // ============== phase components ==============
@@ -190,17 +216,32 @@
       return `Audit ${planName} only Phase ${phaseName} using Project-Plan-Manager skill. Report briefly`;
     }
     function PhaseActions(plan, phase) {
-      return `<div class="flex flex-wrap gap-2 items-center my-2.5">${Button({ label: "Execute Phase", className: BUTTON_PRIMARY, dataset: { prompt: PhaseExecPrompt(plan.name, phase.name) } })}${Button({ label: "Audit Phase", dataset: { prompt: PhaseAuditPrompt(plan.name, phase.name) } })}</div>`;
+      return `<div class="flex flex-wrap gap-2 items-center my-2">${Button({ label: "Execute Phase", className: BUTTON_PRIMARY, dataset: { prompt: PhaseExecPrompt(plan.name, phase.name) } })}${Button({ label: "Audit Phase", dataset: { prompt: PhaseAuditPrompt(plan.name, phase.name) } })}</div>`;
     }
-    function PhaseSection({ plan, phase, query, projectId }) {
-      const statusById = new Map(phase.tasks.map(t => [t.id, t.status]));
-      const tasks = phase.tasks.filter(t => !query || [t.id,t.title,t.detail,t.progress,t.status].some(v => String(v || "").toLowerCase().includes(query)));
+    function matches(task, query) {
+      return [task.id, task.title, task.detail, task.progress, task.status, task.agent, ...list(task.files)]
+        .some(value => String(value || "").toLowerCase().includes(query));
+    }
+    function PhaseSection({ plan, phase, query, projectId, current }) {
+      const tasks = phase.tasks.filter(t => !query || matches(t, query));
       if (query && !tasks.length) return "";
       const phaseStats = stats([phase]);
       const variant = completionClass(phaseStats.percent);
-      const taskKey = t => `${projectId}/${plan.name}/${phase.name}/${t.id}`;
-      const openFor = t => ({ key: taskKey(t), open: state.open.get(taskKey(t)) || false });
-      return `<section class="bg-[#0d1218] border border-[#1c2431] rounded-lg p-3.5"><div class="flex items-start justify-between gap-3 mb-1"><div class="min-w-0"><strong class="text-[14px] font-semibold ${titleClass(phaseStats.percent)}">${esc(phase.title)}</strong><div class="font-mono text-[11px] text-[#6d7889] mt-0.5">${esc(phase.name)}</div></div>${CompletionBadge(phaseStats)}</div>${ProgressBar(phaseStats.percent, variant)}${PhaseActions(plan, phase)}${tasks.map(t => TaskRow({ task: t, statusById, open: openFor(t) })).join("")}</section>`;
+      const names = plan.phases.map(p => p.name);
+      const phaseState = phase.name === current ? "current" : (current && names.indexOf(phase.name) > names.indexOf(current) ? "waiting" : "done");
+      const ctx = { statusById: new Map(phase.tasks.map(t => [t.id, t.status])), wave: phase.wave || {}, phaseState, current };
+      const key = `${projectId}/${plan.name}/${phase.name}`;
+      // Default: current phase open, others collapsed; searching opens matches.
+      const openAttr = (query || isOpen(key, phaseState === "current")) ? " open" : "";
+      const errors = list(phase.errors), warnings = list(phase.warnings);
+      const issueBadges = (errors.length ? Badge("stuck", `${errors.length} error${errors.length === 1 ? "" : "s"}`) : "") + (warnings.length ? Badge("blocked", `${warnings.length} warn`) : "");
+      const stateBadge = phaseState === "current" ? Badge("current", "current") : phaseState === "waiting" ? Badge("waiting", "waiting") : "";
+      const waveCount = Math.max(0, ...Object.values(ctx.wave));
+      const critical = list(phase.criticalPath);
+      const schedule = phase.tasks.length ? `<div class="${META} mt-1 break-words">${waveCount} wave${waveCount === 1 ? "" : "s"} · critical path: ${critical.map(esc).join(" → ") || "—"}</div>` : "";
+      const summary = `<summary class="cursor-pointer flex gap-2 items-start">${CHEVRON}<div class="min-w-0 mr-auto"><strong class="block text-[13px] sm:text-[14px] font-semibold ${titleClass(phaseStats.percent)} truncate">${esc(phase.title)}</strong><div class="flex flex-wrap items-center gap-1.5 mt-0.5"><span class="${META}">${esc(phase.name)}</span>${stateBadge}${issueBadges}</div></div>${CompletionBadge(phaseStats)}</summary>`;
+      const body = `<div class="pt-2">${ProgressBar(phaseStats.percent, variant)}${schedule}${Notice("error", errors)}${Notice("warning", warnings)}${PhaseActions(plan, phase)}${tasks.map(t => TaskRow({ task: t, ctx, key: `${key}/${t.id}` })).join("") || `<span class="${MUTED}">No tasks</span>`}</div>`;
+      return `<details data-key="${esc(key)}"${openAttr} class="bg-[#0d1218] border border-[#1c2431] rounded-lg p-2.5 sm:p-3.5 min-w-0">${summary}${body}</details>`;
     }
 
     // ============== plan components ==============
@@ -211,30 +252,30 @@
       return `Audit ${planName} using Project-Plan-Manager skill`;
     }
     function PlanActions(plan) {
-      return `<div class="flex flex-wrap gap-2 items-center my-3">${Button({ label: "Execute Plan", className: BUTTON_PRIMARY, dataset: { prompt: PlanExecPrompt(plan.name) } })}${Button({ label: "Audit Plan", dataset: { prompt: PlanAuditPrompt(plan.name) } })}${Button({ label: "Open plan.md", dataset: { plan: plan.name } })}</div>`;
+      return `<div class="flex flex-wrap gap-2 items-center my-2.5 sm:my-3">${Button({ label: "Execute Plan", className: BUTTON_PRIMARY, dataset: { prompt: PlanExecPrompt(plan.name) } })}${Button({ label: "Audit Plan", dataset: { prompt: PlanAuditPrompt(plan.name) } })}${Button({ label: "Open plan.md", dataset: { plan: plan.name } })}</div>`;
     }
     function PlanHeading(plan, percent) {
-      return `<span class="flex flex-col gap-0.5 min-w-0 mr-auto"><span class="text-[15px] font-semibold ${titleClass(percent)}">${esc(plan.name)}</span><span class="text-[#6d7889] text-[11.5px] font-normal font-mono">created ${esc(plan.createdAt || "—")} · updated ${esc(plan.lastUpdated || "—")}</span></span>`;
+      return `<span class="flex flex-col gap-0.5 min-w-0 mr-auto"><span class="text-[14px] sm:text-[15px] font-semibold ${titleClass(percent)} truncate">${esc(plan.name)}</span><span class="text-[#6d7889] text-[10.5px] sm:text-[11.5px] font-normal font-mono">created ${esc(plan.createdAt || "—")} · updated ${esc(plan.lastUpdated || "—")}</span></span>`;
     }
-    function PlanErrors(plan) {
-      const errors = Array.isArray(plan.errors) ? plan.errors : [];
-      return errors.length ? `<div class="text-rose-300 text-[12px] font-mono border border-rose-900/50 bg-rose-950/30 rounded-lg p-2.5 my-2">${errors.map(esc).join("<br>")}</div>` : "";
-    }
-    function Plan({ plan, projectId, query }) {
+    function Plan({ plan, planStats, projectId, query }) {
+      const current = currentPhaseName(plan);
       const phaseSections = plan.phases
-        .map(phase => PhaseSection({ plan, phase, query, projectId }))
+        .map(phase => PhaseSection({ plan, phase, query, projectId, current }))
         .filter(Boolean);
       if (query && !phaseSections.length) return "";
-      const planStats = stats(plan.phases);
       const variant = completionClass(planStats.percent);
       const planKey = `${projectId}/${plan.name}`;
-      const openAttr = state.open.get(planKey) ? " open" : "";
-      return `<details data-key="${esc(planKey)}"${openAttr} class="bg-[#111720] border border-[#232b38] rounded-xl p-2"><summary class="cursor-pointer flex gap-3 items-start"><svg class="chev w-3.5 h-3.5 mt-1.5 shrink-0 text-[#6d7889]" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>${PlanHeading(plan, planStats.percent)}<span class="flex flex-col items-end gap-1.5 shrink-0">${CompletionBadge(planStats)}<span class="${MUTED} text-[11px]">${plan.phases.length} phase${plan.phases.length === 1 ? "" : "s"}</span></span></summary><div class="pl-[22px]"><div class="mb-1">${ProgressBar(planStats.percent, variant)}</div>${PlanErrors(plan)}${PlanActions(plan)}<div class="grid gap-3 grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">${phaseSections.join("") || `<span class="${MUTED}">No phases</span>`}</div></div></details>`;
+      const openAttr = (query || isOpen(planKey, false)) ? " open" : "";
+      const issues = list(plan.errors).length + plan.phases.reduce((sum, p) => sum + list(p.errors).length, 0);
+      const issueBadge = issues ? Badge("stuck", `${issues} error${issues === 1 ? "" : "s"}`, "plan_validate would fail") : "";
+      return `<details data-key="${esc(planKey)}"${openAttr} class="bg-[#111720] border border-[#232b38] rounded-xl p-2"><summary class="cursor-pointer flex gap-2 sm:gap-3 items-start">${CHEVRON}${PlanHeading(plan, planStats.percent)}<span class="flex flex-col items-end gap-1 sm:gap-1.5 shrink-0">${CompletionBadge(planStats)}<span class="flex items-center gap-1.5">${issueBadge}<span class="${MUTED} text-[11px]">${plan.phases.length} phase${plan.phases.length === 1 ? "" : "s"}</span></span></span></summary><div class="pl-0 sm:pl-[22px] pt-1"><div class="mb-1">${ProgressBar(planStats.percent, variant)}</div>${Notice("error", list(plan.errors))}${PlanActions(plan)}<div class="grid gap-2 sm:gap-3 grid-cols-1 md:grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start">${phaseSections.join("") || `<span class="${MUTED}">No phases</span>`}</div></div></details>`;
     }
 
     // ============== render ==============
     function render() {
-      rememberAccordions();
+      // Search force-opens matches; don't persist that as the user's accordion state.
+      if (!state.renderedQuery) rememberAccordions();
+      state.renderedQuery = state.query.trim();
       const projects = state.data?.projects || [];
       const select = document.querySelector("#project");
       const previous = state.project || select.value;
@@ -244,10 +285,12 @@
       const project = projects.find(p => p.id === state.project);
       if (!project) { document.querySelector("#content").innerHTML = `<div class="text-[#8996a8] text-sm border border-dashed border-[#232b38] rounded-lg p-6 text-center">No registered projects. Run <code class="font-mono text-teal-300 bg-[#161d27] px-1.5 py-0.5 rounded">ppm init</code>.</div>`; return; }
       if (project.error) { document.querySelector("#content").innerHTML = `<p class="text-rose-300 text-sm border border-rose-900/50 bg-rose-950/30 rounded-lg p-3.5">${esc(project.error)}</p>`; return; }
-      const query = state.query.toLowerCase();
+      const query = state.query.trim().toLowerCase();
       const plans = project.plans
-        .filter(plan => state.filter === "all" || completionClass(stats(plan.phases).percent) === state.filter)
-        .map(plan => Plan({ plan, projectId: project.id, query }))
+        .map(plan => ({ plan, planStats: stats(plan.phases) }))
+        .filter(({ planStats }) => state.filter === "all" || completionClass(planStats.percent) === state.filter)
+        .sort((a, b) => byCompletion(a.planStats, b.planStats))
+        .map(({ plan, planStats }) => Plan({ plan, planStats, projectId: project.id, query }))
         .filter(Boolean)
         .join("");
       document.querySelector("#content").innerHTML = plans || `<div class="text-[#8996a8] text-sm border border-dashed border-[#232b38] rounded-lg p-6 text-center">No plans found.</div>`;

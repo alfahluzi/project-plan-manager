@@ -17,7 +17,6 @@ function buildRegistry(ops) {
 	for (const op of ops) {
 		byName.set(op.name, op);
 		usages.push(op.usage);
-		if (op.aliasFor) byName.set(op.aliasFor, { ...op, name: op.aliasFor });
 	}
 	return { byName, usages };
 }

@@ -21,10 +21,12 @@ CLIENT="opencode"
 MODE="copy"
 ACTION="install"
 
+need_value() { [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || { echo "missing value for $1" >&2; exit 2; }; }
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--client) CLIENT="$2"; shift 2 ;;
-		--mode) MODE="$2"; shift 2 ;;
+		--client) need_value "$@"; CLIENT="$2"; shift 2 ;;
+		--mode) need_value "$@"; MODE="$2"; shift 2 ;;
 		--uninstall) ACTION="uninstall"; shift ;;
 		-h|--help)
 			sed -n '2,14p' "$0"
@@ -58,12 +60,27 @@ clients() {
 	esac
 }
 
+case "$MODE" in copy|link) ;; *) echo "unknown --mode: $MODE (expected copy|link)" >&2; exit 2 ;; esac
+# Validate here: clients() runs inside $(...), where its `fail` would only exit the subshell.
+case "$CLIENT" in opencode|claude|codex|all) ;; *) echo "unknown --client: $CLIENT (expected opencode|claude|codex|all)" >&2; exit 2 ;; esac
+
+# Absolute physical path, or empty when it does not exist.
+real_dir() { (cd "$1" 2>/dev/null && pwd -P) || true; }
+
+# True when the target skill dir IS this source checkout (cloned in place), so deleting it would delete the repo.
+is_source() { [[ "$(real_dir "$1")" == "$(real_dir "$REPO_ROOT")" ]]; }
+
 copy_tree() {
 	local dest="$1"
 	mkdir -p "$dest"
+	if is_source "$dest/$SKILL_NAME"; then
+		warn "$dest/$SKILL_NAME is this source checkout; using it in place"
+		return 0
+	fi
 	rm -rf "$dest/$SKILL_NAME"
 	if [[ "$MODE" == "link" ]]; then
 		ln -s "$REPO_ROOT" "$dest/$SKILL_NAME"
+		ok "linked skill -> $dest/$SKILL_NAME"
 	else
 		mkdir -p "$dest/$SKILL_NAME"
 		# Copy only what package.json "files" publishes (+ package.json itself).
@@ -75,6 +92,7 @@ copy_tree() {
 			mkdir -p "$dest/$SKILL_NAME/$(dirname "$item")"
 			cp -R "$REPO_ROOT/$item" "$dest/$SKILL_NAME/$item"
 		done
+		ok "copied skill -> $dest/$SKILL_NAME"
 	fi
 }
 
@@ -102,7 +120,12 @@ unlink_bin() {
 
 remove_skill() {
 	local dir="$1"
+	if is_source "$dir/$SKILL_NAME"; then
+		warn "skipping $dir/$SKILL_NAME: it is this source checkout (delete it manually if intended)"
+		return 0
+	fi
 	rm -rf "$dir/$SKILL_NAME"
+	ok "removed skill from $dir/$SKILL_NAME"
 }
 
 command -v node >/dev/null || fail "node not found in PATH"
@@ -117,7 +140,6 @@ if [[ "$ACTION" == "uninstall" ]]; then
 	for c in $(clients "$CLIENT"); do
 		d="$(client_dir "$c")"
 		remove_skill "$d"
-		ok "removed skill from $d/$SKILL_NAME"
 	done
 	# Keep `ppm` alive while any client still has the skill; repoint it there.
 	if remaining="$(first_installed)"; then
@@ -138,11 +160,6 @@ log "  mode   : $MODE"
 for c in $(clients "$CLIENT"); do
 	d="$(client_dir "$c")"
 	copy_tree "$d"
-	if [[ "$MODE" == "link" ]]; then
-		ok "linked skill for $c -> $d/$SKILL_NAME"
-	else
-		ok "copied skill for $c -> $d/$SKILL_NAME"
-	fi
 done
 
 # Single global `ppm`: link once (source repo in link mode, first installed copy otherwise).

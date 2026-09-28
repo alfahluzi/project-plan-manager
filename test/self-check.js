@@ -4,6 +4,7 @@
 // Zero-dependency self-check: runs the real CLI against a throwaway project. Usage: node test/self-check.js
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
@@ -104,6 +105,9 @@ async function main() {
 	assert.equal(patternsOverlap("src/*.ts", "src/x/y.ts"), false);
 	assert.equal(patternsOverlap("src/a/**", "src/b/**"), false);
 	assert.equal(patternsOverlap("src/a.ts", "src/b.ts"), false);
+	assert.equal(patternsOverlap("src/users", "src/users/x.ts"), true); // literal dir without trailing "/"
+	assert.equal(patternsOverlap("src/user", "src/users/x.ts"), false);
+	assert.equal(patternsOverlap("src", "src/**/*.ts"), true);
 	const diamond = { tasks: [task("A"), task("B", { pre_request: ["A"] }), task("C", { pre_request: ["A"] }), task("D", { pre_request: ["B", "C"] })] };
 	assert.deepEqual(waves(diamond).map((wave) => wave.map((t) => t.id)), [["A"], ["B", "C"], ["D"]]);
 	assert.equal(criticalPath(diamond).length, 3);
@@ -146,7 +150,60 @@ async function main() {
 	for (const t of readTasks("phase_1")) assert.match(t.progress, new RegExp(`done ${t.id}$`), `lost update for ${t.id}`);
 	assert.equal(fs.readdirSync(tasksDir).some((name) => name.endsWith(".lock")), false, "stale lock left behind");
 
+	// Empty phase is an error (would otherwise read as complete).
+	writePhase("phase_2", []);
+	bad(/phase_2: phase has no tasks/, "plan_validate", "--plan", "demo");
+	fs.unlinkSync(path.join(tasksDir, "phase_2.json"));
+
+	// Missing plan is an error, not an empty status.
+	bad(/plan not found/, "plan_status", "--plan", "nope");
+
+	// Dashboard: API carries lint/waves, Host guard, port conflict is a clean error.
+	await dashboardChecks();
+
 	process.stdout.write("self-check passed\n");
+}
+
+function get(port, host) {
+	return new Promise((resolve, reject) => {
+		const request = http.get({ host: "127.0.0.1", port, path: "/api/tasks", headers: { host } }, (response) => {
+			let body = "";
+			response.on("data", (chunk) => { body += chunk; });
+			response.on("end", () => resolve({ status: response.statusCode, body }));
+		});
+		request.on("error", reject);
+	});
+}
+
+async function waitFor(fn, ms = 5000) {
+	const deadline = Date.now() + ms;
+	for (;;) {
+		try { return await fn(); } catch (error) {
+			if (Date.now() > deadline) throw error;
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}
+}
+
+async function dashboardChecks() {
+	const port = String(40000 + Math.floor(Math.random() * 20000));
+	const server = spawn(process.execPath, [CLI, "dashboard_serve", "--project", project, "--port", port], { env });
+	try {
+		const okResponse = await waitFor(() => get(port, `127.0.0.1:${port}`));
+		assert.equal(okResponse.status, 200);
+		const phase = JSON.parse(okResponse.body).projects[0].plans[0].phases.find((p) => p.name === "phase_0");
+		assert.ok(Array.isArray(phase.errors) && Array.isArray(phase.warnings), "api lint fields");
+		assert.equal(typeof phase.wave.A, "number");
+		assert.ok(Array.isArray(phase.criticalPath));
+		assert.equal((await get(port, `localhost:${port}`)).status, 200);
+		assert.equal((await get(port, `evil.example:${port}`)).status, 403);
+		const clash = spawnSync(process.execPath, [CLI, "dashboard_serve", "--project", project, "--port", port], { env, encoding: "utf8", timeout: 5000 });
+		assert.equal(clash.status, 1);
+		assert.match(clash.stderr, /^Error: dashboard failed to start: port \d+ is already in use/);
+		assert.match(spawnSync(process.execPath, [CLI, "check_dashboard", "--port", port], { env, encoding: "utf8" }).stdout, /^Dashboard running: /);
+	} finally {
+		server.kill();
+	}
 }
 
 main()
