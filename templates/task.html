@@ -168,8 +168,13 @@
       const deps = Array.isArray(task.pre_request) ? task.pre_request : [];
       return deps.length ? `<div class="font-mono text-[11px] text-[#6d7889]">pre_request: ${deps.map(esc).join(", ")}</div>` : "";
     }
+    function OwnershipLine(task) {
+      const files = Array.isArray(task.files) ? task.files : [];
+      const agent = task.agent ? `<div class="font-mono text-[11px] text-[#6d7889]">agent: ${esc(task.agent)}</div>` : "";
+      return agent + (files.length ? `<div class="font-mono text-[11px] text-[#6d7889] break-all">files: ${files.map(esc).join(", ")}</div>` : "");
+    }
     function TaskBody(task) {
-      return `<div class="task-body pt-2.5 pl-[1px]">${DepsLine(task)}<section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Detail</div><p class="text-[13px] text-[#b7c0cc] leading-snug mt-1">${esc(task.detail)}</p></section><section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Progress</div><div class="text-[13px] text-[#b7c0cc] leading-snug mt-1 whitespace-pre-wrap">${esc(task.progress || "No progress recorded.")}</div></section></div>`;
+      return `<div class="task-body pt-2.5 pl-[1px]">${DepsLine(task)}${OwnershipLine(task)}<section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Detail</div><p class="text-[13px] text-[#b7c0cc] leading-snug mt-1">${esc(task.detail)}</p></section><section class="mt-2.5"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Progress</div><div class="text-[13px] text-[#b7c0cc] leading-snug mt-1 whitespace-pre-wrap">${esc(task.progress || "No progress recorded.")}</div></section></div>`;
     }
     function TaskRow({ task, statusById, open }) {
       const taskClass = cls(TASK_BASE, TASK_BORDER[task.status]);
@@ -179,7 +184,7 @@
 
     // ============== phase components ==============
     function PhaseExecPrompt(planName, phaseName) {
-      return `Execute ${planName} only Phase ${phaseName} using Project-Plan-Manager skill. Phases are sequential; tasks with empty pre_request are parallel-eligible. Use ppm task_ready to list runnable tasks.`;
+      return `Execute ${planName} only Phase ${phaseName} using Project-Plan-Manager skill. Phases are sequential; tasks with empty pre_request are parallel-eligible. Act as orchestrator: dispatch each ppm task_ready task to a sub agent matching its agent hint, verify, then mark status.`;
     }
     function PhaseAuditPrompt(planName, phaseName) {
       return `Audit ${planName} only Phase ${phaseName} using Project-Plan-Manager skill. Report briefly`;

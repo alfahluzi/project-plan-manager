@@ -9,6 +9,7 @@ Resolve `<project-path>` and `<plan-name>`. Do not initialize or register anythi
 ```bash
 ppm plan_validate --plan <name> [--project <project-path>]
 ppm plan_status --plan <name> [--project <project-path>]
+ppm plan_waves --plan <name> [--project <project-path>]
 ppm task_list --plan <name> --phase <phase_x> [--project <project-path>]
 ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <project-path>]
 ```
@@ -32,7 +33,13 @@ Assess:
 - feasibility;
 - security and privacy;
 - rollback or migration needs where applicable;
+- parallel efficiency: phases used only as real sync barriers, wave width and critical path from `plan_waves`, false `pre_request` dependencies;
+- file ownership: every concurrent task declares `files`, no overlaps, hotspot files owned by a single foundation or integration task;
+- context packets: each `detail` is self-contained (Goal, Files, Contract, Steps, Verify, Done when) with no references to other tasks or `plan.md`;
+- `agent` role hints and a closing integration/verify task per phase;
 - execution readiness.
+
+Treat `plan_validate` warnings as `minor` or `major` findings depending on impact; a mostly serial plan with no justification is `major`.
 
 Do not invent requirements. Avoid implementation redesign beyond plan scope.
 

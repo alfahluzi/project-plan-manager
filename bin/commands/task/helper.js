@@ -13,6 +13,7 @@ const {
 	listPhaseNames,
 	withFileLock,
 } = require("../_shared/phase");
+const { waves, criticalPath, lintPhase } = require("../_shared/analysis");
 
 function resolvePlanRoot(options) {
 	assertSafeSegment(options.plan, "plan name", PLAN_PATTERN);
@@ -192,6 +193,8 @@ function taskGetHandler(options) {
 		["Status", task.status],
 		["Pre-request", deps.length ? deps.join(", ") : "None"],
 		["Eligibility", eligibility(task, phase) || "N/A (not todo)"],
+		["Agent", task.agent || "Unspecified"],
+		["Files", Array.isArray(task.files) && task.files.length ? task.files.join("\n") : "Unspecified"],
 		["Detail", task.detail],
 		["Progress", task.progress || "No progress recorded."],
 	]);
@@ -203,21 +206,55 @@ function planPhases(options) {
 	return { planRoot, names: listPhaseNames(planRoot) };
 }
 
+// Errors: schema defects and concurrent file-ownership conflicts (always fail).
+// Warnings: efficiency/clarity smells (fail only with --strict).
 function planValidateHandler(options) {
 	const { planRoot, names } = planPhases(options);
 	const errors = [];
+	const warnings = [];
 	if (!fs.existsSync(path.join(planRoot, "plan.md"))) errors.push("plan.md: missing");
 	if (!names.length) errors.push("tasks/: no phase_*.json files");
 	let taskCount = 0;
 	for (const name of names) {
-		try { taskCount += readPhase(path.join(planRoot, "tasks", `${name}.json`), name).tasks.length; } catch (error) { errors.push(`${name}: ${error.message}`); }
+		let phase;
+		try { phase = readPhase(path.join(planRoot, "tasks", `${name}.json`), name); } catch (error) {
+			errors.push(`${name}: ${error.message}`);
+			continue;
+		}
+		taskCount += phase.tasks.length;
+		const lint = lintPhase(phase);
+		errors.push(...lint.errors.map((message) => `${name}: ${message}`));
+		warnings.push(...lint.warnings.map((message) => `${name}: ${message}`));
 	}
-	if (errors.length) {
-		process.stdout.write(`Plan invalid: ${options.plan}\n${errors.map((error) => `- ${error}`).join("\n")}\n`);
+	const list = (items) => items.map((item) => `- ${item}`).join("\n");
+	const warningBlock = warnings.length ? `Warnings (${warnings.length}):\n${list(warnings)}\n` : "";
+	if (errors.length || (options.strict && warnings.length)) {
+		process.stdout.write(`Plan invalid: ${options.plan}\n${errors.length ? `Errors (${errors.length}):\n${list(errors)}\n` : ""}${warningBlock}`);
 		process.exitCode = 1;
 		return;
 	}
-	process.stdout.write(`Plan valid: ${options.plan}; phases: ${names.length}; tasks: ${taskCount}\n`);
+	process.stdout.write(`Plan valid: ${options.plan}; phases: ${names.length}; tasks: ${taskCount}; warnings: ${warnings.length}\n${warningBlock}`);
+}
+
+function planWavesHandler(options) {
+	const { planRoot, names } = planPhases(options);
+	if (!names.length) {
+		process.stdout.write("No phases.\n");
+		return;
+	}
+	let totalWaves = 0, totalTasks = 0, peak = 0;
+	const blocks = names.map((name) => {
+		const phase = readPhase(path.join(planRoot, "tasks", `${name}.json`), name);
+		const phaseWaves = waves(phase);
+		totalWaves += phaseWaves.length;
+		totalTasks += phase.tasks.length;
+		peak = Math.max(peak, ...phaseWaves.map((wave) => wave.length), 0);
+		const lines = phaseWaves.map((wave, index) => `Wave ${index + 1} (${wave.length}): ${wave.map((task) => `${task.id}${task.agent ? ` [${task.agent}]` : ""}${task.status === "todo" ? "" : ` (${task.status})`}`).join(", ")}`);
+		const chain = criticalPath(phase);
+		return `## ${name} - ${phase.title || name}\n${lines.join("\n") || "No tasks."}\nCritical path (${chain.length}): ${chain.join(" -> ") || "-"}`;
+	});
+	const speedup = totalWaves ? (totalTasks / totalWaves).toFixed(2) : "0";
+	process.stdout.write(`${blocks.join("\n\n")}\n\nSummary: ${names.length} phases (sync barriers), ${totalWaves} sequential waves, ${totalTasks} tasks, peak width ${peak}, avg parallelism ${speedup}\n`);
 }
 
 function planStatusHandler(options) {
@@ -253,6 +290,7 @@ module.exports = {
 	setTaskStatus,
 	planValidateHandler,
 	planStatusHandler,
+	planWavesHandler,
 	validateProgressText,
 	readyTasks,
 	blockedTasks,

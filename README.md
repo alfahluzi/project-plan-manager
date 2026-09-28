@@ -125,9 +125,14 @@ ppm check_dashboard [--port <port>]
 ### Plans
 
 ```bash
-ppm plan_validate --plan <name> [--project <path>]
+ppm plan_validate --plan <name> [--strict] [--project <path>]
 ppm plan_status --plan <name> [--project <path>]
+ppm plan_waves --plan <name> [--project <path>]
 ```
+
+`plan_validate` checks schema, cycles, and fails when tasks that can run concurrently own overlapping `files`. It also warns about serial phases, missing ownership, incomplete context packets, missing closing task, and missing `agent` hints (`--strict` turns warnings into errors). `plan_waves` prints the parallel wave schedule, critical path, peak width, and average parallelism.
+
+Optional task fields for sub-agent execution: `files` (write ownership: repo-relative paths, `dir/`, or globs) and `agent` (`explore|implement|review|verify` role hint).
 
 ### Tasks
 

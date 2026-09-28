@@ -10,6 +10,7 @@ const {
 	setTaskStatus,
 	planValidateHandler,
 	planStatusHandler,
+	planWavesHandler,
 	validateProgressText,
 } = require("./helper");
 
@@ -20,8 +21,16 @@ const taskIdRequired = ["plan", "phase", "task-id"];
 module.exports = [
 	createOperation({
 		name: "plan_validate",
-		usage: "ppm plan_validate --plan <name> [--project <path>]",
+		usage: "ppm plan_validate --plan <name> [--strict] [--project <path>]",
 		handler: planValidateHandler,
+		options: ["project", "plan", "strict"],
+		required: ["plan"],
+	}),
+
+	createOperation({
+		name: "plan_waves",
+		usage: "ppm plan_waves --plan <name> [--project <path>]",
+		handler: planWavesHandler,
 		options: ["project", "plan"],
 		required: ["plan"],
 	}),

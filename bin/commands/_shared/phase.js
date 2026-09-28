@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { PLAN_PATTERN, PHASE_PATTERN, VALID_STATUSES } = require("./patterns");
+const { PLAN_PATTERN, PHASE_PATTERN, VALID_STATUSES, VALID_AGENTS } = require("./patterns");
 
 const LOCK_TIMEOUT_MS = 10000;
 const LOCK_STALE_MS = 30000;
@@ -131,6 +131,26 @@ function detectCycles(phase) {
 	for (const id of deps.keys()) if (color.get(id) === WHITE) visit(id);
 }
 
+// Optional ownership list: repo-relative paths, dirs (trailing "/"), or globs (*, **, ?).
+function validateFiles(task, index) {
+	if (!("files" in task)) return;
+	const label = `tasks[${index}].files`;
+	if (!Array.isArray(task.files)) throw new Error(`${label} must be an array of repo-relative paths or globs`);
+	const seen = new Set();
+	for (const entry of task.files) {
+		if (typeof entry !== "string" || !entry.trim()) throw new Error(`${label} entries must be non-empty strings`);
+		if (path.isAbsolute(entry) || /^[A-Za-z]:/.test(entry)) throw new Error(`${label} must be repo-relative: ${entry}`);
+		if (entry.split(/[\\/]/).includes("..")) throw new Error(`${label} must not contain "..": ${entry}`);
+		if (seen.has(entry)) throw new Error(`${label} contains duplicate entry: ${entry}`);
+		seen.add(entry);
+	}
+}
+
+function validateAgent(task, index) {
+	if (!("agent" in task)) return;
+	if (!VALID_AGENTS.has(task.agent)) throw new Error(`tasks[${index}].agent must be one of ${[...VALID_AGENTS].join("|")}: ${task.agent}`);
+}
+
 function validatePhase(phase, expectedPhase) {
 	if (!phase || typeof phase !== "object" || Array.isArray(phase)) throw new Error("phase file root must be an object");
 	if (phase.phase !== expectedPhase) throw new Error(`phase field must equal ${expectedPhase}`);
@@ -144,6 +164,8 @@ function validatePhase(phase, expectedPhase) {
 		ids.add(task.id);
 		if (!VALID_STATUSES.has(task.status)) throw new Error(`${label}.status is invalid: ${task.status}`);
 		if (typeof task.progress !== "string") throw new Error(`${label}.progress must be a string`);
+		validateFiles(task, index);
+		validateAgent(task, index);
 	});
 	phase.tasks.forEach((task, index) => validatePreRequest(task, index, ids));
 	detectCycles(phase);

@@ -12,7 +12,7 @@ function usageText() {
 	return ["Usage:", ...usages, "", "Compatibility: plan_init remains an alias for init --plan."].join("\n");
 }
 
-const BOOLEAN_OPTIONS = new Set(["dry-run", "force", "replace"]);
+const BOOLEAN_OPTIONS = new Set(["dry-run", "force", "replace", "strict"]);
 // Free-text options may legitimately start with "--"; every other value must not.
 const FREE_TEXT_OPTIONS = new Set(["progress-text"]);
 

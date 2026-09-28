@@ -86,6 +86,45 @@ async function main() {
 	assert.match(readTasks("phase_1")[0].progress, /\[legacy fail_desc\] boom\n\[.*\] retry/);
 	assert.equal("fail_desc" in readTasks("phase_1")[0], false);
 
+	// Pure analysis: glob overlap, waves, critical path.
+	const { patternsOverlap, waves, criticalPath } = require("../bin/commands/_shared/analysis");
+	assert.equal(patternsOverlap("src/a.ts", "src/**"), true);
+	assert.equal(patternsOverlap("src/api/", "src/api/x.ts"), true);
+	assert.equal(patternsOverlap("src/*.ts", "src/x/y.ts"), false);
+	assert.equal(patternsOverlap("src/a/**", "src/b/**"), false);
+	assert.equal(patternsOverlap("src/a.ts", "src/b.ts"), false);
+	const diamond = { tasks: [task("A"), task("B", { pre_request: ["A"] }), task("C", { pre_request: ["A"] }), task("D", { pre_request: ["B", "C"] })] };
+	assert.deepEqual(waves(diamond).map((wave) => wave.map((t) => t.id)), [["A"], ["B", "C"], ["D"]]);
+	assert.equal(criticalPath(diamond).length, 3);
+
+	// files/agent schema.
+	writePhase("phase_1", [task("D", { files: ["/abs"] })]);
+	bad(/must be repo-relative/, "plan_validate", "--plan", "demo");
+	writePhase("phase_1", [task("D", { agent: "wizard" })]);
+	bad(/agent must be one of/, "plan_validate", "--plan", "demo");
+
+	// Concurrent file overlap is an error; ordering via pre_request resolves it.
+	const packet = "Goal: g\nFiles: f\nSteps: s\nVerify: v\nDone when: d";
+	const t = (id, extra) => task(id, { detail: packet, agent: "implement", ...extra });
+	writePhase("phase_1", [t("E", { files: ["src/shared.ts"] }), t("F", { files: ["src/**"] })]);
+	bad(/E and F can run concurrently but share files/, "plan_validate", "--plan", "demo");
+	writePhase("phase_1", [t("E", { files: ["src/shared.ts"] }), t("F", { files: ["src/**"], pre_request: ["E"] })]);
+	assert.doesNotMatch(ok("plan_validate", "--plan", "demo"), /share files/);
+
+	// Warnings: serial phase; --strict fails on warnings; well-formed fan-out has none for that phase.
+	assert.match(ok("plan_validate", "--plan", "demo"), /phase_1: fully serial/);
+	bad(/Plan invalid/, "plan_validate", "--plan", "demo", "--strict");
+	writePhase("phase_1", [
+		t("E", { files: ["src/a.ts"] }),
+		t("F", { files: ["src/b.ts"] }),
+		t("G", { files: ["src/index.ts"], agent: "verify", pre_request: ["E", "F"] }),
+	]);
+	assert.doesNotMatch(ok("plan_validate", "--plan", "demo"), /phase_1:/);
+	const wavesOut = ok("plan_waves", "--plan", "demo");
+	assert.match(wavesOut, /## phase_1[^]*Wave 1 \(2\): E \[implement\], F \[implement\]\nWave 2 \(1\): G \[verify\]/);
+	assert.match(wavesOut, /Critical path \(2\): (E|F) -> G/);
+	assert.match(ok("task_get", ...p1, "--task-id", "E"), /## Agent\nimplement\n## Files\nsrc\/a.ts/);
+
 	// Parallel writers on one phase file: no lost updates.
 	const ids = Array.from({ length: 12 }, (_, i) => `P${i}`);
 	writePhase("phase_1", ids.map((id) => task(id)));
