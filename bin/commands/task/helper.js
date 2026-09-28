@@ -68,10 +68,6 @@ function writePhase(taskFile, phase) {
 	} finally { if (fs.existsSync(temporaryFile)) fs.unlinkSync(temporaryFile); }
 }
 
-function printFields(fields) {
-	process.stdout.write(`${fields.map(([label, value]) => `## ${label}\n${value}`).join("\n")}\n`);
-}
-
 function loadPhase(options) {
 	const taskFile = resolveTaskFile(options);
 	return { taskFile, phase: readPhase(taskFile, options.phase) };
@@ -118,14 +114,39 @@ function earlierUnfinishedPhases(planRoot, phaseName) {
 	});
 }
 
+// Next phase name after phaseName, or null when it is the last.
+function nextPhase(planRoot, phaseName) {
+	const names = listPhaseNames(planRoot);
+	return names[names.indexOf(phaseName) + 1] || null;
+}
+
+function phaseDoneNote(planRoot, phaseName) {
+	const next = nextPhase(planRoot, phaseName);
+	return `Phase ${phaseName} complete. ${next ? `Next: ${next}` : "Plan complete."}`;
+}
+
+function idsWith(phase, status) {
+	return phase.tasks.filter((task) => task.status === status).map((task) => task.id);
+}
+
+// Output: "<id>: <old> -> <new>." plus newly unblocked tasks and phase completion.
 function setTaskStatus(options, status) {
 	const planRoot = resolvePlanRoot(options);
-	mutatePhase(options, (phase) => {
-		const task = getTask(phase, options["task-id"]);
-		if (!options.force) assertTransition(phase, task, status, planRoot, options.phase);
+	const { previous, phase } = mutatePhase(options, (current) => {
+		const task = getTask(current, options["task-id"]);
+		if (!options.force) assertTransition(current, task, status, planRoot, options.phase);
+		const old = task.status;
 		task.status = status;
+		return { previous: old, phase: current };
 	});
-	process.stdout.write("Task status updated\n");
+	const id = options["task-id"];
+	const parts = [`${id}: ${previous} -> ${status}.`];
+	if (status === "completed") {
+		const unblocked = readyTasks(phase).filter((task) => task.pre_request.includes(id)).map((task) => task.id);
+		if (unblocked.length) parts.push(`Unblocked: ${unblocked.join(", ")}.`);
+		if (phase.tasks.every((task) => task.status === "completed")) parts.push(phaseDoneNote(planRoot, options.phase));
+	}
+	process.stdout.write(`${parts.join(" ")}\n`);
 }
 
 function timestamp() {
@@ -139,65 +160,69 @@ function taskWriteProgressHandler(options) {
 		const entry = `[${timestamp()}] ${text}`;
 		task.progress = options.replace ? text : [task.progress.trim(), entry].filter(Boolean).join("\n");
 	});
-	process.stdout.write("progress updated\n");
+	process.stdout.write(`${options["task-id"]}: progress ${options.replace ? "replaced" : "appended"}\n`);
 }
+
+const afterNote = (task) => (depsOf(task).length ? ` (after ${depsOf(task).join(", ")})` : "");
 
 function taskListHandler(options) {
 	const { phase } = loadPhase(options);
-	const output = phase.tasks.map(({ id, title, status, progress }) => `## ${id} - ${title}\nStatus: ${status}${status === "todo" && progress.trim() ? ". Has progress" : ""}`).join("\n\n");
-	process.stdout.write(output ? `${output}\n` : "No tasks.\n");
+	const lines = phase.tasks.map((task) => `${task.id} [${task.status}] ${task.title}${afterNote(task)}${task.status === "todo" && task.progress.trim() ? " +progress" : ""}`);
+	process.stdout.write(lines.length ? `${lines.join("\n")}\n` : "No tasks.\n");
 }
 
-function formatReadyEntry({ id, title, pre_request }) {
-	const deps = pre_request.length ? `\nPre-request: ${pre_request.join(", ")}` : "";
-	return `## ${id} - ${title}${deps}`;
+function dispatchLine(task) {
+	const files = Array.isArray(task.files) && task.files.length ? ` | files: ${task.files.join(", ")}` : "";
+	return `${task.id}${task.agent ? ` [${task.agent}]` : ""} ${task.title}${files}`;
 }
 
 function taskReadyHandler(options) {
 	const { phase } = loadPhase(options);
-	const ready = readyTasks(phase);
-	if (!ready.length) {
-		const blocked = blockedTasks(phase);
-		const blockedNote = blocked.length
-			? `\nBlocked tasks waiting on unmet pre_request: ${blocked.map(({ id }) => id).join(", ")}\n`
-			: "";
-		process.stdout.write(`No ready tasks.${blockedNote}`);
+	const readyIds = new Set(readyTasks(phase).map((task) => task.id));
+	if (readyIds.size) {
+		const lines = phase.tasks.filter((task) => readyIds.has(task.id)).map(dispatchLine);
+		process.stdout.write(`Ready ${lines.length}:\n${lines.join("\n")}\n`);
 		return;
 	}
-	process.stdout.write(`Ready tasks (parallel-eligible within this phase): ${ready.length}\n\n${ready.map(formatReadyEntry).join("\n\n")}\n`);
+	if (phase.tasks.every((task) => task.status === "completed")) {
+		process.stdout.write(`No ready tasks. ${phaseDoneNote(resolvePlanRoot(options), options.phase)}\n`);
+		return;
+	}
+	const parts = ["No ready tasks."];
+	const running = idsWith(phase, "in_progress");
+	const failed = idsWith(phase, "fail");
+	const blocked = blockedTasks(phase);
+	if (running.length) parts.push(`In progress: ${running.join(", ")}.`);
+	if (failed.length) parts.push(`Failed: ${failed.join(", ")}.`);
+	if (blocked.length) parts.push(`Blocked: ${blocked.map(({ id, waiting }) => `${id} (waiting ${waiting.join(", ")})`).join(", ")}.`);
+	process.stdout.write(`${parts.join(" ")}\n`);
 }
 
 function taskBlockedHandler(options) {
 	const { phase } = loadPhase(options);
 	const blocked = blockedTasks(phase);
-	if (!blocked.length) {
-		process.stdout.write("No blocked tasks.\n");
-		return;
-	}
-	const lines = blocked.map(({ id, title, waiting }) => `## ${id} - ${title}\nWaiting on: ${waiting.join(", ")}`);
-	process.stdout.write(`${lines.join("\n\n")}\n`);
+	process.stdout.write(blocked.length
+		? `${blocked.map(({ id, title, waiting }) => `${id} ${title} | waiting: ${waiting.join(", ")}`).join("\n")}\n`
+		: "No blocked tasks.\n");
 }
 
-function eligibility(task, phase) {
-	if (task.status !== "todo") return null;
-	if (!depsOf(task).length) return "parallel (no pre_request)";
-	return unmetDeps(task, statusMap(phase)).length ? "blocked (pre_request unmet)" : "ready (pre_request satisfied)";
+function statusLabel(task, phase) {
+	if (task.status !== "todo") return task.status;
+	const waiting = unmetDeps(task, statusMap(phase));
+	return waiting.length ? `todo, blocked: waiting ${waiting.join(", ")}` : "todo, ready";
 }
 
+// Self-contained: header carries id/status/eligibility so it can be forwarded to a sub agent as-is.
 function taskGetHandler(options) {
 	const { phase } = loadPhase(options);
 	const task = getTask(phase, options["task-id"]);
-	const deps = depsOf(task);
-	printFields([
-		["Title", task.title],
-		["Status", task.status],
-		["Pre-request", deps.length ? deps.join(", ") : "None"],
-		["Eligibility", eligibility(task, phase) || "N/A (not todo)"],
-		["Agent", task.agent || "Unspecified"],
-		["Files", Array.isArray(task.files) && task.files.length ? task.files.join("\n") : "Unspecified"],
-		["Detail", task.detail],
-		["Progress", task.progress || "No progress recorded."],
-	]);
+	const meta = [`Phase: ${options.phase}`];
+	if (depsOf(task).length) meta.push(`After: ${depsOf(task).join(", ")}`);
+	if (task.agent) meta.push(`Agent: ${task.agent}`);
+	if (Array.isArray(task.files) && task.files.length) meta.push(`Files: ${task.files.join(", ")}`);
+	const blocks = [`${task.id} [${statusLabel(task, phase)}] ${task.title}`, meta.join(" | "), `## Detail\n${task.detail}`];
+	if (task.progress.trim()) blocks.push(`## Progress\n${task.progress.trim()}`);
+	process.stdout.write(`${blocks.join("\n")}\n`);
 }
 
 function planPhases(options) {
@@ -266,14 +291,16 @@ function planStatusHandler(options) {
 	let current = null;
 	const lines = names.map((name) => {
 		const phase = readPhase(path.join(planRoot, "tasks", `${name}.json`), name);
-		const counts = { todo: 0, in_progress: 0, completed: 0, fail: 0 };
-		for (const task of phase.tasks) counts[task.status] += 1;
-		const done = counts.completed === phase.tasks.length;
-		if (!done && current === null) current = name;
-		const summary = Object.entries(counts).map(([status, count]) => `${status} ${count}`).join(", ");
-		return `## ${name} - ${phase.title || name}\n${done ? "Completed" : "Open"}: ${summary}`;
+		const done = idsWith(phase, "completed").length;
+		if (done !== phase.tasks.length && current === null) current = name;
+		const parts = [`${name} ${phase.title || name}: ${done}/${phase.tasks.length} done`];
+		for (const status of ["in_progress", "fail"]) {
+			const ids = idsWith(phase, status);
+			if (ids.length) parts.push(`${status}: ${ids.join(", ")}`);
+		}
+		return parts.join(" | ");
 	});
-	process.stdout.write(`${lines.join("\n\n")}\n\nCurrent phase: ${current || "none (plan complete)"}\n`);
+	process.stdout.write(`${lines.join("\n")}\nCurrent: ${current || "none (plan complete)"}\n`);
 }
 
 function validateProgressText(opts) {

@@ -213,12 +213,12 @@ function dashboardHealthHandler(options) {
 	});
 	request.on("timeout", () => {
 		request.destroy();
-		process.stdout.write(`Dashboard not responding: ${url} (timeout)\nStart with: ppm dashboard_serve [--port ${port}]\n`);
+		process.stdout.write(`Dashboard not responding: ${url} (timeout)\nStart with: ppm dashboard_serve --port ${port}\n`);
 		process.exitCode = 1;
 	});
 	request.on("error", (error) => {
 		if (error.code === "ECONNREFUSED") {
-			process.stdout.write(`Dashboard not running: ${pageUrl}\nStart with: ppm dashboard_serve [--port ${port}]\n`);
+			process.stdout.write(`Dashboard not running: ${pageUrl}\nStart with: ppm dashboard_serve --port ${port}\n`);
 			process.exitCode = 1;
 			return;
 		}

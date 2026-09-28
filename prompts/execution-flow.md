@@ -16,7 +16,7 @@ Get phase order and the current phase from the CLI. Do not use memory, filenames
 ppm plan_status --plan <plan-name> [--project <project-path>]
 ```
 
-Start at the `Current phase` it reports and process phases in numeric order without skipping.
+Start at the `Current:` phase it reports and process phases in numeric order without skipping.
 
 ## Roles
 
@@ -33,14 +33,14 @@ Before the first phase, run `ppm plan_validate --plan <name>` and `ppm plan_wave
 
 1. Call `ppm task_ready --plan <name> --phase <phase_x>` to get the current wave: `todo` tasks with all `pre_request` dependencies `completed`. Optionally call `ppm task_blocked` to inspect waiting dependencies.
 2. If the ready set is empty and at least one task is still `todo`, stop: every remaining task is blocked on unmet dependencies (usually a `fail`). Resolve blockers before continuing.
-3. For each ready task, call `ppm task_get` to read Agent, Files, Detail, and Progress, then `ppm task_in_progress`. The CLI rejects blocked tasks and tasks whose earlier phase is not fully `completed`; do not bypass with `--force` unless the user explicitly asks.
+3. `task_ready` already lists each ready task with its agent hint and owned files. For each, call `ppm task_get` to fetch the full Detail (and Progress when resuming), then `ppm task_in_progress`. Status commands report newly unblocked tasks and phase completion, so you rarely need an extra `task_list`. The CLI rejects blocked tasks and tasks whose earlier phase is not fully `completed`; do not bypass with `--force` unless the user explicitly asks.
 4. Dispatch all ready tasks of the wave in parallel, in a single batch, one worker per task. Map the `agent` hint to the closest available sub agent type: `explore` to a read-only explorer, `implement` to an editing/coding agent, `review` to a reviewer, `verify` to an agent that can run commands. Without a hint, pick by the task detail.
 5. The dispatch prompt must be self-contained, because workers start with no context. Include: project root, plan name, phase, task ID, the full `task_get` Detail verbatim, the owned `files` list with the rule "modify only these files; report instead of editing anything else", the exact `ppm task_write_progress` command to record evidence, and the rule "do not change task status".
 6. When each worker returns, verify with real command output before trusting its summary: run the task's `Verify` commands and check the diff stays inside the owned `files`. Out-of-scope edits count as a failure.
 7. Record the verification evidence with `ppm task_write_progress` (appends a timestamped entry; `--replace` only to deliberately overwrite).
 8. Verified: `ppm task_completed`. Not verified: re-dispatch once with the exact defect; if it fails again, write the failure context, call `ppm task_fail`, and stop unless the user explicitly requests continuation. A `fail` keeps dependents blocked until `ppm task_reset` or a successful retry via `ppm task_in_progress` then `ppm task_completed`.
 9. Repeat from step 1 for the next wave. The phase's closing integration/verify task runs last and gates the phase.
-10. Continue to the next phase. Stop only when `ppm plan_status` reports `Current phase: none (plan complete)`.
+10. Continue to the next phase. Stop only when `ppm plan_status` reports `Current: none (plan complete)`.
 
 Never dispatch two concurrently running workers that own the same file; `plan_validate` guarantees this for planned tasks, so preserve it if you add ad-hoc work.
 
@@ -71,4 +71,12 @@ ppm task_reset --plan <name> --phase phase_0 --task-id TASK-001
 ppm task_write_progress --plan <name> --phase phase_0 --task-id TASK-001 --progress-text "Implemented endpoint; verification passed."
 ```
 
-`plan_status` lists phases in order with per-status counts and the current phase. `task_list` is the authoritative ordered task view. `task_ready` lists `todo` tasks whose `pre_request` dependencies are all `completed`: the parallel-eligible candidates for the current phase. `task_blocked` lists `todo` tasks still waiting on unmet `pre_request` items. `task_get` returns Title, Status, Pre-request, Eligibility, Agent, Files, Detail, and Progress for one task. `plan_waves` shows the wave schedule and critical path. Status commands return `Task status updated`; progress writes return `progress updated`. Status commands accept `--force` to skip transition guards (manual repair only).
+Output formats (one line per item, empty fields omitted):
+
+- `plan_status`: `<phase> <title>: <done>/<total> done | in_progress: <ids> | fail: <ids>` per phase, then `Current: <phase>` or `Current: none (plan complete)`.
+- `task_list`: `<id> [<status>] <title> (after <deps>)`; `+progress` marks a `todo` task that has progress from an earlier attempt.
+- `task_ready`: `Ready <n>:` then `<id> [<agent>] <title> | files: <files>`. When empty it says why: `Phase <x> complete. Next: <y>` / `Plan complete.`, or lists `In progress`, `Failed`, and `Blocked (waiting ...)` tasks.
+- `task_blocked`: `<id> <title> | waiting: <ids>`.
+- `task_get`: header `<id> [<status>] <title>` (todo shows `ready` or `blocked: waiting <ids>`), a meta line `Phase | After | Agent | Files`, `## Detail`, and `## Progress` only when present. The output is self-contained and can be forwarded to a worker as-is.
+- Status commands: `<id>: <old> -> <new>.` plus `Unblocked: <ids>.` and `Phase <x> complete. Next: <y>` when applicable. `task_write_progress`: `<id>: progress appended|replaced`.
+- `plan_waves`: waves per phase, critical path, and a summary line. Status commands accept `--force` to skip transition guards (manual repair only).

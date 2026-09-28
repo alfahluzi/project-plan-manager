@@ -54,18 +54,24 @@ async function main() {
 
 	// ready / blocked.
 	const ready = ok("task_ready", ...p0);
-	assert.match(ready, /Ready tasks .*: 2/);
+	assert.match(ready, /^Ready 2:\nA A\nB B\n$/);
 	assert.doesNotMatch(ready, /## C/);
-	assert.match(ok("task_blocked", ...p0), /## C - C\nWaiting on: A, B/);
+	assert.match(ok("task_blocked", ...p0), /^C C \| waiting: A, B\n$/);
 
 	// Transition guards.
 	bad(/invalid transition/, "task_completed", ...p0, "--task-id", "A");
 	bad(/blocked by unmet pre_request: A, B/, "task_in_progress", ...p0, "--task-id", "C");
 	bad(/earlier phase not completed: phase_0/, "task_in_progress", ...p1, "--task-id", "D");
-	ok("task_in_progress", ...p0, "--task-id", "A");
+	assert.equal(ok("task_in_progress", ...p0, "--task-id", "A"), "A: todo -> in_progress.\n");
 	bad(/already in_progress/, "task_in_progress", ...p0, "--task-id", "A");
-	ok("task_completed", ...p0, "--task-id", "A");
-	ok("task_completed", ...p0, "--task-id", "B", "--force");
+	assert.equal(ok("task_ready", ...p0), "Ready 1:\nB B\n");
+	assert.equal(ok("task_completed", ...p0, "--task-id", "A"), "A: in_progress -> completed.\n");
+	assert.equal(ok("task_completed", ...p0, "--task-id", "B", "--force"), "B: todo -> completed. Unblocked: C.\n");
+	assert.match(ok("task_list", ...p0), /^A \[completed\] A\nB \[completed\] B\nC \[todo\] C \(after A, B\)\n$/);
+
+	// Scoped usage on bad invocation.
+	const missing = ppm("task_get", "--plan", "demo");
+	assert.equal(missing.out, "Error: missing --phase\nUsage: ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <path>]\n");
 
 	// Progress appends with timestamps; --replace overwrites; values may start with "--".
 	ok("task_write_progress", ...p0, "--task-id", "C", "--progress-text", "first");
@@ -78,7 +84,12 @@ async function main() {
 	assert.equal(readTasks("phase_0").find((t) => t.id === "C").progress, "only");
 
 	// plan_status reports current phase.
-	assert.match(ok("plan_status", "--plan", "demo"), /Current phase: phase_0/);
+	assert.equal(ok("plan_status", "--plan", "demo"), "phase_0 phase_0: 2/3 done\nphase_1 phase_1: 0/1 done\nCurrent: phase_0\n");
+	ok("task_in_progress", ...p0, "--task-id", "C");
+	assert.equal(ok("task_ready", ...p0), "No ready tasks. In progress: C.\n");
+	assert.equal(ok("task_completed", ...p0, "--task-id", "C"), "C: in_progress -> completed. Phase phase_0 complete. Next: phase_1\n");
+	assert.equal(ok("task_ready", ...p0), "No ready tasks. Phase phase_0 complete. Next: phase_1\n");
+	ok("task_reset", ...p0, "--task-id", "C");
 
 	// Legacy fail_desc is folded into progress, not dropped.
 	writePhase("phase_1", [task("D", { status: "fail", fail_desc: "boom" })]);
@@ -123,7 +134,7 @@ async function main() {
 	const wavesOut = ok("plan_waves", "--plan", "demo");
 	assert.match(wavesOut, /## phase_1[^]*Wave 1 \(2\): E \[implement\], F \[implement\]\nWave 2 \(1\): G \[verify\]/);
 	assert.match(wavesOut, /Critical path \(2\): (E|F) -> G/);
-	assert.match(ok("task_get", ...p1, "--task-id", "E"), /## Agent\nimplement\n## Files\nsrc\/a.ts/);
+	assert.match(ok("task_get", ...p1, "--task-id", "E"), /^E \[todo, ready\] E\nPhase: phase_1 \| Agent: implement \| Files: src\/a.ts\n## Detail\n/);
 
 	// Parallel writers on one phase file: no lost updates.
 	const ids = Array.from({ length: 12 }, (_, i) => `P${i}`);

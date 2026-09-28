@@ -40,9 +40,11 @@ function parseArgs(argv) {
 	const name = argv[0];
 	const op = byName.get(name);
 	if (!op) throw new Error(`unknown or missing operation\n${usageText()}`);
-	const options = parseOptions(argv.slice(1), op.options);
+	// Scoped usage: an error on a known op prints only that op's usage line, not the full list.
+	let options;
+	try { options = parseOptions(argv.slice(1), op.options); } catch (error) { throw new Error(`${error.message}\nUsage: ${op.usage}`); }
 	for (const required of op.required)
-		if (!options[required]) throw new Error(`missing --${required}\n${usageText()}`);
+		if (!options[required]) throw new Error(`missing --${required}\nUsage: ${op.usage}`);
 	for (const validate of Object.values(op.validators)) validate(options);
 	return { operation: name, options };
 }
