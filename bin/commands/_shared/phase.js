@@ -3,7 +3,53 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { PLAN_PATTERN, PHASE_PATTERN } = require("./patterns");
+const { PLAN_PATTERN, PHASE_PATTERN, VALID_STATUSES } = require("./patterns");
+
+const LOCK_TIMEOUT_MS = 10000;
+const LOCK_STALE_MS = 30000;
+
+function phaseNumber(name) {
+	const match = /^phase_(\d+)$/.exec(name);
+	return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+// Phase names under <planRoot>/tasks, ordered numerically (phase_2 before phase_10).
+function listPhaseNames(planRoot) {
+	let entries;
+	try { entries = fs.readdirSync(path.join(planRoot, "tasks"), { withFileTypes: true }); } catch (error) {
+		if (error.code === "ENOENT") return [];
+		throw error;
+	}
+	return entries
+		.filter((entry) => entry.isFile() && entry.name.endsWith(".json") && PHASE_PATTERN.test(entry.name.slice(0, -5)))
+		.map((entry) => entry.name.slice(0, -5))
+		.sort((a, b) => phaseNumber(a) - phaseNumber(b) || a.localeCompare(b));
+}
+
+function sleep(ms) {
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// Exclusive lock around read-modify-write of one phase file, so parallel lanes don't lose updates.
+// ponytail: O_EXCL lockfile + stale timeout; swap for proper flock if multi-host FS is ever needed.
+function withFileLock(file, fn) {
+	const lock = `${file}.lock`;
+	const deadline = Date.now() + LOCK_TIMEOUT_MS;
+	for (;;) {
+		try {
+			fs.closeSync(fs.openSync(lock, "wx"));
+			break;
+		} catch (error) {
+			if (error.code !== "EEXIST") throw error;
+			try {
+				if (Date.now() - fs.statSync(lock).mtimeMs > LOCK_STALE_MS) { fs.unlinkSync(lock); continue; }
+			} catch (statError) { if (statError.code !== "ENOENT") throw statError; continue; }
+			if (Date.now() > deadline) throw new Error(`timed out waiting for lock: ${lock}`);
+			sleep(25 + Math.floor(Math.random() * 25));
+		}
+	}
+	try { return fn(); } finally { try { fs.unlinkSync(lock); } catch { /* already gone */ } }
+}
 
 function assertSafeSegment(value, label, pattern) {
 	if (!pattern.test(value) || value === "." || value === "..") throw new Error(`invalid ${label}: ${value}`);
@@ -30,11 +76,18 @@ function readPhase(taskFile, expectedPhase) {
 	}
 	let phase;
 	try { phase = JSON.parse(content); } catch (error) { throw new Error(`invalid JSON in ${taskFile}: ${error.message}`); }
+	// Legacy normalization. fail_desc is folded into progress (not dropped) so no failure context is lost.
 	if (Array.isArray(phase?.tasks)) {
 		for (const task of phase.tasks) {
-			if (task && typeof task === "object" && task.progress === undefined) task.progress = "";
-			if (task && typeof task === "object" && task.status === "start") task.status = "todo";
-			if (task && typeof task === "object" && "fail_desc" in task) delete task.fail_desc;
+			if (!task || typeof task !== "object") continue;
+			if (task.progress === undefined) task.progress = "";
+			if (task.status === "start") task.status = "todo";
+			if ("fail_desc" in task) {
+				const legacy = typeof task.fail_desc === "string" ? task.fail_desc.trim() : "";
+				if (legacy && typeof task.progress === "string" && !task.progress.includes(legacy))
+					task.progress = [task.progress.trim(), `[legacy fail_desc] ${legacy}`].filter(Boolean).join("\n");
+				delete task.fail_desc;
+			}
 		}
 	}
 	validatePhase(phase, expectedPhase);
@@ -89,11 +142,21 @@ function validatePhase(phase, expectedPhase) {
 		for (const field of ["id", "title", "detail", "status"]) if (typeof task[field] !== "string" || !task[field].trim()) throw new Error(`${label}.${field} must be a non-empty string`);
 		if (ids.has(task.id)) throw new Error(`duplicate task id: ${task.id}`);
 		ids.add(task.id);
-		if (!["todo", "in_progress", "completed", "fail"].includes(task.status)) throw new Error(`${label}.status is invalid: ${task.status}`);
+		if (!VALID_STATUSES.has(task.status)) throw new Error(`${label}.status is invalid: ${task.status}`);
 		if (typeof task.progress !== "string") throw new Error(`${label}.progress must be a string`);
 	});
 	phase.tasks.forEach((task, index) => validatePreRequest(task, index, ids));
 	detectCycles(phase);
 }
 
-module.exports = { assertSafeSegment, projectRoot, readPhase, validatePhase, PLAN_PATTERN, PHASE_PATTERN };
+module.exports = {
+	assertSafeSegment,
+	projectRoot,
+	readPhase,
+	validatePhase,
+	phaseNumber,
+	listPhaseNames,
+	withFileLock,
+	PLAN_PATTERN,
+	PHASE_PATTERN,
+};

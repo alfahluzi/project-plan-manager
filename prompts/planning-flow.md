@@ -104,7 +104,15 @@ Within a single phase, tasks whose `pre_request` is absent or empty can run in p
 
 ## Required planning deliverables
 
-Produce `plan.md` and one phase JSON file per ordered phase. Include actionable tasks, dependencies, acceptance or verification criteria, risks and mitigations, unresolved questions, and a definition of done. Confirm all files are inside the intended project and referenced paths exist. Report changed files, current status, unresolved questions, and verification.
+Produce `plan.md` and one phase JSON file per ordered phase. Include actionable tasks, dependencies, acceptance or verification criteria, risks and mitigations, unresolved questions, and a definition of done. Confirm all files are inside the intended project and referenced paths exist.
+
+After writing or editing any phase JSON, run and fix every reported error until it prints `Plan valid`:
+
+```bash
+ppm plan_validate --plan <plan-name> [--project <project-path>]
+```
+
+Report changed files, current status, unresolved questions, and the `plan_validate` output as verification.
 
 ## Supporting commands
 
@@ -113,6 +121,8 @@ Run from the target project root, or add `--project <project-path>`:
 ```bash
 ppm init [--project <project-path>]
 ppm init --plan <plan-name> [--project <project-path>]
+ppm plan_validate --plan <plan-name> [--project <project-path>]
+ppm plan_status --plan <plan-name> [--project <project-path>]
 ppm migrate [--project <project-path>] [--dry-run]
 ppm clean_roots [--dry-run]
 ```

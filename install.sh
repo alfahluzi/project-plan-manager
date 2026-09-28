@@ -66,9 +66,28 @@ copy_tree() {
 		ln -s "$REPO_ROOT" "$dest/$SKILL_NAME"
 	else
 		mkdir -p "$dest/$SKILL_NAME"
-		cp -R "$REPO_ROOT/." "$dest/$SKILL_NAME/"
-		rm -rf "$dest/$SKILL_NAME/.git" "$dest/$SKILL_NAME/node_modules" "$dest/$SKILL_NAME/install.sh"
+		# Copy only what package.json "files" publishes (+ package.json itself).
+		local item
+		local files
+		files="$(node -p 'require(process.argv[1]).files.join(" ")' "$REPO_ROOT/package.json")" || fail "cannot read package.json files"
+		for item in package.json $files; do
+			[[ -e "$REPO_ROOT/$item" ]] || continue
+			mkdir -p "$dest/$SKILL_NAME/$(dirname "$item")"
+			cp -R "$REPO_ROOT/$item" "$dest/$SKILL_NAME/$item"
+		done
 	fi
+}
+
+# First installed client dir, used as the single `npm link` source.
+first_installed() {
+	local c
+	for c in opencode claude codex; do
+		if [[ -f "$(client_dir "$c")/$SKILL_NAME/package.json" ]]; then
+			echo "$(client_dir "$c")/$SKILL_NAME"
+			return 0
+		fi
+	done
+	return 1
 }
 
 link_bin() {
@@ -78,10 +97,6 @@ link_bin() {
 }
 
 unlink_bin() {
-	local pkg_dir="$1"
-	if [[ -d "$pkg_dir" ]]; then
-		( cd "$pkg_dir" && npm unlink --no-audit --no-fund >/dev/null 2>&1 ) || true
-	fi
 	npm uninstall -g "$PACKAGE_NAME" --no-audit --no-fund >/dev/null 2>&1 || true
 }
 
@@ -97,12 +112,20 @@ command -v npm >/dev/null || fail "npm not found in PATH"
 
 if [[ "$ACTION" == "uninstall" ]]; then
 	log "uninstalling $SKILL_NAME"
+	# Unlink before deleting dirs: npm leaves a dangling shim if the link target is already gone.
+	unlink_bin
 	for c in $(clients "$CLIENT"); do
 		d="$(client_dir "$c")"
-		unlink_bin "$d/$SKILL_NAME"
 		remove_skill "$d"
 		ok "removed skill from $d/$SKILL_NAME"
 	done
+	# Keep `ppm` alive while any client still has the skill; repoint it there.
+	if remaining="$(first_installed)"; then
+		link_bin "$remaining"
+		ok "ppm relinked to $remaining"
+	else
+		ok "ppm unlinked"
+	fi
 	ok "uninstall complete"
 	exit 0
 fi
@@ -115,13 +138,22 @@ log "  mode   : $MODE"
 for c in $(clients "$CLIENT"); do
 	d="$(client_dir "$c")"
 	copy_tree "$d"
-	link_bin "$d/$SKILL_NAME"
 	if [[ "$MODE" == "link" ]]; then
 		ok "linked skill for $c -> $d/$SKILL_NAME"
 	else
 		ok "copied skill for $c -> $d/$SKILL_NAME"
 	fi
 done
+
+# Single global `ppm`: link once (source repo in link mode, first installed copy otherwise).
+if [[ "$MODE" == "link" ]]; then
+	link_bin "$REPO_ROOT"
+	ok "ppm linked to $REPO_ROOT"
+else
+	pkg="$(first_installed)" || fail "no installed copy found to link"
+	link_bin "$pkg"
+	ok "ppm linked to $pkg"
+fi
 
 if command -v ppm >/dev/null 2>&1; then
 	ok "ppm available at $(command -v ppm)"

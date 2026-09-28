@@ -4,16 +4,16 @@ Use this flow to audit or review a plan before execution. Read this file in full
 
 ## Resolve and inspect safely
 
-Resolve `<project-path>` and `<plan-name>`. Do not initialize or register anything during the audit. Pass `--project <project-path>` to CLI commands when explicit project resolution is needed. If the plan or required files do not exist, report that evidence and return `not_ready`; do not create them. Inspect `<project-path>/.ppm/<plan-name>/plan.md`. Enumerate `tasks/phase_*.json` filenames to establish phase order, without relying on filename order alone.
-
-For complete consistency checks, use the CLI exclusively for phase task data:
+Resolve `<project-path>` and `<plan-name>`. Do not initialize or register anything during the audit. Pass `--project <project-path>` to CLI commands when explicit project resolution is needed. If the plan or required files do not exist, report that evidence and return `not_ready`; do not create them. Inspect `<project-path>/.ppm/<plan-name>/plan.md`. Use the read-only CLI for phase order, schema validity, and task data:
 
 ```bash
+ppm plan_validate --plan <name> [--project <project-path>]
+ppm plan_status --plan <name> [--project <project-path>]
 ppm task_list --plan <name> --phase <phase_x> [--project <project-path>]
 ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <project-path>]
 ```
 
-Do not call status or progress mutation commands. Never mark a task, write progress, or rewrite the plan during an audition.
+A `plan_validate` failure is a `blocker` finding. Do not call status or progress mutation commands. Never mark a task, write progress, or rewrite the plan during an audition.
 
 ## Audit criteria
 

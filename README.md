@@ -2,7 +2,7 @@
 
 Agent Skill and CLI for structured project plans, phased JSON tasks, progress tracking, and a local dashboard.
 
-Canonical layout: lowercase hyphenated `project-plan-manager/SKILL.md` plus three routed flow files under `prompts/`: `planning-flow.md`, `execution-flow.md`, and `audition-flow.md`. `SKILL.md` routes requests to the mandatory flow prompt; this layout is usable by OpenCode, Claude Code, Codex, and other Agent Skills-compatible clients.
+Canonical layout: lowercase hyphenated `project-plan-manager/SKILL.md` plus four routed flow files under `prompts/`: `planning-flow.md`, `execution-flow.md`, `audition-flow.md`, and `installation-flow.md`. `SKILL.md` routes requests to the mandatory flow prompt; this layout is usable by OpenCode, Claude Code, Codex, and other Agent Skills-compatible clients.
 
 ![Example](assets/Example.png)
 
@@ -122,6 +122,13 @@ ppm dashboard_serve [--project <path>] [--port <port>]
 ppm check_dashboard [--port <port>]
 ```
 
+### Plans
+
+```bash
+ppm plan_validate --plan <name> [--project <path>]
+ppm plan_status --plan <name> [--project <path>]
+```
+
 ### Tasks
 
 ```bash
@@ -129,14 +136,16 @@ ppm task_list --plan <name> --phase <phase_x> [--project <path>]
 ppm task_ready --plan <name> --phase <phase_x> [--project <path>]
 ppm task_blocked --plan <name> --phase <phase_x> [--project <path>]
 ppm task_get --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
-ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
-ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
-ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
-ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--project <path>]
-ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--project <path>]
+ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
+ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
+ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
+ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]
+ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--replace] [--project <path>]
 ```
 
 `plan_init` is a backward-compatible alias for `init --plan`. Phases execute strictly in numeric order. Inside a phase, tasks with no `pre_request` (or `pre_request: []`) can run in parallel; tasks with `pre_request` entries wait until each listed task is `completed`. `ppm task_ready` lists the currently runnable tasks in a phase.
+
+Status commands enforce transitions (`todo|fail -> in_progress -> completed|fail`, `task_reset` back to `todo`); `task_in_progress` also refuses blocked tasks and tasks in a phase whose predecessors are not fully completed. `--force` skips these guards for manual repair. Writes to a phase file are serialized with a lockfile, so parallel lanes are safe. `task_write_progress` appends a timestamped entry; `--replace` overwrites.
 
 See [SKILL.md](SKILL.md) for mandatory routing. Follow [planning-flow.md](prompts/planning-flow.md), [execution-flow.md](prompts/execution-flow.md), [audition-flow.md](prompts/audition-flow.md), or [installation-flow.md](prompts/installation-flow.md) for the applicable workflow.
 
@@ -155,7 +164,7 @@ The CLI writes project paths and task data locally. Do not publish `config.json`
 From the package directory:
 
 ```bash
-npm run check
+npm run check        # runs test/self-check.js against the real CLI (loads every bin/ module)
 ppm
 npm pack --dry-run
 ```

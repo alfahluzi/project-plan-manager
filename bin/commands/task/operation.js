@@ -8,13 +8,32 @@ const {
 	taskGetHandler,
 	taskWriteProgressHandler,
 	setTaskStatus,
+	planValidateHandler,
+	planStatusHandler,
 	validateProgressText,
 } = require("./helper");
 
 const taskOptions = ["project", "plan", "phase", "task-id"];
+const statusOptions = [...taskOptions, "force"];
 const taskIdRequired = ["plan", "phase", "task-id"];
 
 module.exports = [
+	createOperation({
+		name: "plan_validate",
+		usage: "ppm plan_validate --plan <name> [--project <path>]",
+		handler: planValidateHandler,
+		options: ["project", "plan"],
+		required: ["plan"],
+	}),
+
+	createOperation({
+		name: "plan_status",
+		usage: "ppm plan_status --plan <name> [--project <path>]",
+		handler: planStatusHandler,
+		options: ["project", "plan"],
+		required: ["plan"],
+	}),
+
 	createOperation({
 		name: "task_list",
 		usage: "ppm task_list --plan <name> --phase <phase_x> [--project <path>]",
@@ -49,41 +68,41 @@ module.exports = [
 
 	createOperation({
 		name: "task_in_progress",
-		usage: "ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
+		usage: "ppm task_in_progress --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]",
 		handler: (options) => setTaskStatus(options, "in_progress"),
-		options: taskOptions,
+		options: statusOptions,
 		required: taskIdRequired,
 	}),
 
 	createOperation({
 		name: "task_completed",
-		usage: "ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
+		usage: "ppm task_completed --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]",
 		handler: (options) => setTaskStatus(options, "completed"),
-		options: taskOptions,
+		options: statusOptions,
 		required: taskIdRequired,
 	}),
 
 	createOperation({
 		name: "task_fail",
-		usage: "ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
+		usage: "ppm task_fail --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]",
 		handler: (options) => setTaskStatus(options, "fail"),
-		options: taskOptions,
+		options: statusOptions,
 		required: taskIdRequired,
 	}),
 
 	createOperation({
 		name: "task_reset",
-		usage: "ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--project <path>]",
+		usage: "ppm task_reset --plan <name> --phase <phase_x> --task-id <id> [--force] [--project <path>]",
 		handler: (options) => setTaskStatus(options, "todo"),
-		options: taskOptions,
+		options: statusOptions,
 		required: taskIdRequired,
 	}),
 
 	createOperation({
 		name: "task_write_progress",
-		usage: "ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--project <path>]",
+		usage: "ppm task_write_progress --plan <name> --phase <phase_x> --task-id <id> --progress-text <text> [--replace] [--project <path>]",
 		handler: taskWriteProgressHandler,
-		options: ["project", "plan", "phase", "task-id", "progress-text"],
+		options: ["project", "plan", "phase", "task-id", "progress-text", "replace"],
 		required: ["plan", "phase", "task-id", "progress-text"],
 		validators: { "progress-text": validateProgressText },
 	}),

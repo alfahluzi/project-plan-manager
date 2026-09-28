@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { URL } = require("node:url");
 
-const { PLAN_PATTERN, assertSafeSegment, projectRoot, readPhase } = require("../_shared/phase");
+const { PLAN_PATTERN, assertSafeSegment, projectRoot, readPhase, listPhaseNames } = require("../_shared/phase");
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "project-plan-manager");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
@@ -108,11 +108,6 @@ function cleanRootsHandler(options) {
 	process.stdout.write(`${options["dry-run"] ? "Invalid" : "Cleaned"}: ${removed.length}; active: ${kept.length}\n`);
 }
 
-function phaseNumber(name) {
-	const match = /^phase_(\d+)$/.exec(name);
-	return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
-}
-
 function planMetadata(content) {
 	const read = (label) => {
 		const match = new RegExp(`^\\s*${label}\\s*:\\s*(.*?)\\s*$`, "im").exec(content);
@@ -121,31 +116,39 @@ function planMetadata(content) {
 	return { createdAt: read("Created"), lastUpdated: read("Last updated") };
 }
 
+// Errors are captured per plan/phase so one broken file doesn't take down the whole dashboard.
+function readPlanData(plansRoot, name) {
+	const planRoot = path.join(plansRoot, name);
+	const errors = [];
+	let content = "";
+	try { content = fs.readFileSync(path.join(planRoot, "plan.md"), "utf8"); } catch (error) { if (error.code !== "ENOENT") errors.push(`plan.md: ${error.message}`); }
+	let phases = [];
+	try {
+		phases = listPhaseNames(planRoot).flatMap((phaseName) => {
+			const filePath = path.join(planRoot, "tasks", `${phaseName}.json`);
+			try {
+				const phase = readPhase(filePath, phaseName);
+				return [{ name: phaseName, title: phase.title || phaseName, filePath, tasks: phase.tasks }];
+			} catch (error) {
+				errors.push(`${phaseName}: ${error.message}`);
+				return [];
+			}
+		});
+	} catch (error) { errors.push(`tasks: ${error.message}`); }
+	return { name, content, ...planMetadata(content), phases, errors };
+}
+
 function readProjectData(project) {
 	const plansRoot = path.join(project.path, ".ppm");
-	const plans = fs.readdirSync(plansRoot, { withFileTypes: true })
-		.filter((entry) => entry.isDirectory() && PLAN_PATTERN.test(entry.name))
-		.map((entry) => {
-			const planRoot = path.join(plansRoot, entry.name);
-			const taskRoot = path.join(planRoot, "tasks");
-			const planFile = path.join(planRoot, "plan.md");
-			let content = "";
-			try { content = fs.readFileSync(planFile, "utf8"); } catch (error) { if (error.code !== "ENOENT") throw error; }
-			let taskFiles = [];
-			try { taskFiles = fs.readdirSync(taskRoot, { withFileTypes: true }); } catch (error) { if (error.code !== "ENOENT") throw error; }
-			const phases = taskFiles
-				.filter((file) => file.isFile() && /^phase_.*\.json$/.test(file.name))
-				.sort((a, b) => phaseNumber(path.basename(a.name, ".json")) - phaseNumber(path.basename(b.name, ".json")) || a.name.localeCompare(b.name))
-				.map((file) => {
-					const name = path.basename(file.name, ".json");
-					const filePath = path.join(taskRoot, file.name);
-					const phase = readPhase(filePath, name);
-					return { name, title: phase.title || name, filePath, tasks: phase.tasks };
-				});
-			return { name: entry.name, content, ...planMetadata(content), phases };
-		})
-		.sort((a, b) => a.name.localeCompare(b.name));
-	return { id: project.path, name: project.name, path: project.path, plans };
+	try {
+		const plans = fs.readdirSync(plansRoot, { withFileTypes: true })
+			.filter((entry) => entry.isDirectory() && PLAN_PATTERN.test(entry.name))
+			.map((entry) => readPlanData(plansRoot, entry.name))
+			.sort((a, b) => a.name.localeCompare(b.name));
+		return { id: project.path, name: project.name, path: project.path, plans };
+	} catch (error) {
+		return { id: project.path, name: project.name, path: project.path, plans: [], error: error.message };
+	}
 }
 
 function dashboardProjects(options) {
