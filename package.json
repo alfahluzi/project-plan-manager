@@ -17,6 +17,17 @@
   "bin": {
     "ppm": "bin/ppm.js"
   },
+  "piWeb": {
+    "panels": [
+      {
+        "id": "plan",
+        "title": "Project Plan",
+        "icon": "clipboard",
+        "entry": "panel/index.html",
+        "order": 10
+      }
+    ]
+  },
   "files": [
     "SKILL.md",
     "prompts/planning-flow.md",
@@ -27,12 +38,14 @@
     "README.md",
     "LICENSE",
     "bin",
-    "templates/task.html"
+    "templates/task.html",
+    "panel"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "check": "node test/self-check.js"
+    "check": "node test/self-check.js",
+    "sync:tailwind": "curl -fsSL https://cdn.tailwindcss.com -o panel/tailwind.js"
   }
 }

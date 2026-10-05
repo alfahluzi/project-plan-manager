@@ -145,6 +145,23 @@
     function isOpen(key, fallback) {
       return state.open.has(key) ? state.open.get(key) : fallback;
     }
+    // Progress entries are appended as "[<ISO timestamp>] <text>" lines (ppm task_write_progress).
+    // Evidence may span several lines, so split on the timestamp marker: untimestamped lines
+    // continue the entry above. The legacy fail_desc marker (phase.js) is its own entry, never
+    // a continuation, because it is appended after whatever progress already existed.
+    const PROGRESS_ENTRY = /^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\]\s?/;
+    const PROGRESS_LEGACY = /^\[legacy fail_desc\]/;
+    function progressEntries(text) {
+      const entries = [];
+      String(text || "").split("\n").forEach(line => {
+        const match = line.match(PROGRESS_ENTRY);
+        if (match) entries.push({ stamp: match[1], text: line.slice(match[0].length) });
+        else if (PROGRESS_LEGACY.test(line)) entries.push({ stamp: "", text: line });
+        else if (entries.length) entries[entries.length - 1].text += `\n${line}`;
+        else entries.push({ stamp: "", text: line });
+      });
+      return entries.filter(entry => entry.stamp || entry.text.trim());
+    }
 
     // ============== primitive components ==============
     function Badge(variant, text, title) {
@@ -198,10 +215,17 @@
       const meta = [
         deps.length ? `<div class="${META}">pre_request: ${deps.map(esc).join(", ")}</div>` : "",
         task.agent ? `<div class="${META}">agent: ${esc(task.agent)}</div>` : "",
-        files.length ? `<div class="${META} break-all">files: ${files.map(esc).join(", ")}</div>` : "",
+        files.length ? `<div class="${META} break-all"><span>files:</span><ul class="mt-0.5 pl-3 list-disc marker:text-[#3d4757] space-y-0.5">${files.map(file => `<li>${esc(file)}</li>`).join("")}</ul></div>` : "",
       ].join("");
       const section = (label, body) => `<section class="mt-2"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">${label}</div><div class="text-[12px] sm:text-[13px] text-[#b7c0cc] leading-snug mt-1 whitespace-pre-wrap break-words">${esc(body)}</div></section>`;
-      return `<div class="task-body pt-2 pl-[1px]">${meta}${section("Detail", task.detail)}${task.progress ? section("Progress", task.progress) : ""}</div>`;
+      return `<div class="task-body pt-2 pl-[1px]">${meta}${section("Detail", task.detail)}${ProgressSection(task.progress)}</div>`;
+    }
+    // One list item per entry: timestamp on its own muted line, evidence indented beneath it.
+    function ProgressSection(text) {
+      const entries = progressEntries(text);
+      if (!entries.length) return "";
+      const items = entries.map(entry => `<li class="pl-0.5">${entry.stamp ? `<div class="${META} break-all">[${esc(entry.stamp)}]</div>` : ""}<div class="text-[12px] sm:text-[13px] text-[#b7c0cc] leading-snug whitespace-pre-wrap break-words">${esc(entry.text)}</div></li>`).join("");
+      return `<section class="mt-2"><div class="text-[#6d7889] text-[10.5px] font-semibold tracking-wide">Progress</div><ul class="mt-1 list-disc pl-4 space-y-1.5 marker:text-[#3d4757]">${items}</ul></section>`;
     }
     function TaskRow({ task, ctx, key }) {
       const openAttr = isOpen(key, false) ? " open" : "";
